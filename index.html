@@ -216,7 +216,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
 
 <dialog id="det" class="sheet">
   <div class="sheet-h"><div><h3 id="det-title"></h3><p id="det-sub" style="margin:4px 0 0"></p></div><button class="btn" id="det-close" aria-label="Fechar">✕</button></div>
-  <div class="sheet-b"><div class="kvs" id="det-kv"></div><h4 class="label" style="margin:14px 0 4px">Itens</h4><table id="det-itens"></table></div>
+  <div class="sheet-b"><div class="kvs" id="det-kv"></div><div id="det-extra"></div><h4 class="label" style="margin:14px 0 4px">Itens</h4><table id="det-itens"></table></div>
 </dialog>
 
 <dialog id="dlg">
@@ -575,6 +575,15 @@ function abrirOrc(num) {
     campo("Cond. pagto", esc(r.cond_pagto)) + campo("Cobrança", esc(r.cobranca)) +
     campo("Valor", brl2(r.valor)) + campo("% Lucro", r.perc_lucro != null ? fmtNum(r.perc_lucro) + "%" : null) +
     campo("Pedido gerado", r.pedido ? esc(r.pedido) : "—") + campo("NF gerada", r.nf ? esc(r.nf) : "—");
+  const c = (DATA.clientes || {})[String(r.cliente_cod)];
+  if (c) {
+    $("#det-kv").innerHTML += campo("Cidade", [c.cidade, c.uf].filter(Boolean).join(" / ") || null) + campo("Cliente desde", c.desde ? fmtDataAno(c.desde) + ` (${anosDesde(c.desde)})` : null)
+      + campo("Compras 12 meses", c.qtd_12m ? `${c.qtd_12m} nota${c.qtd_12m > 1 ? "s" : ""} · ${brl(c.total_12m)}` : "nenhuma")
+      + campo("Limite de crédito", c.limite != null ? brl(c.limite) : null)
+      + campo("Em aberto (usado)", c.usado != null ? `${brl(c.usado)}${c.limite ? ` · ${fmtNum(Math.round(c.usado / c.limite * 100))}%` : ""}${c.vencido ? ` · <span class="luc-bad">vencido ${brl(c.vencido)}</span>` : ""}` : null);
+    const uc = c.ult_compras || [];
+    $("#det-extra").innerHTML = `<h4 class="label" style="margin:14px 0 4px">Últimas compras</h4><table>${uc.length ? uc.map(n => `<tr><td><div class="cli">${fmtDataAno(n.data)} · NF ${esc(n.nf ?? "—")}</div><div class="mt">${esc(n.cond_pagto || "—")}</div></td><td class="v">${brl2(n.valor)}</td></tr>`).join("") : `<tr><td class="empty">Sem compras registradas.</td></tr>`}</table>`;
+  } else $("#det-extra").innerHTML = "";
   $("#det-itens").previousElementSibling.textContent = "Itens";
   $("#det-itens").innerHTML = itens.length ? itens.map(i => `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}</div></td>
     <td class="v">${brl2(i.total ?? i.qtd * i.unitario)}</td></tr>`).join("") + `<tr class="tot"><td>Total dos itens</td><td class="v">${brl2(soma)}</td></tr>`
@@ -591,6 +600,7 @@ function abrirNotas(data) {
   $("#det-sub").innerHTML = `${ns.length} nota${ns.length === 1 ? "" : "s"} · <b>${brl2(tot)}</b>${DATA.faturamento.notas_mes ? "" : " · lista indisponível nesta versão dos dados"}`;
   const porV = {}; ns.forEach(n => { porV[n.rca] = (porV[n.rca] || 0) + n.valor; });
   $("#det-kv").innerHTML = Object.entries(porV).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="kv"><span>${esc(primeiroNome(k))}</span><b>${brl(v)}</b></div>`).join("");
+  $("#det-extra").innerHTML = "";
   $("#det-itens").previousElementSibling.textContent = "Notas";
   $("#det-itens").innerHTML = ns.length ? ns.map(n => `<tr class="orc" data-nf="${esc(n.nf)}" data-data="${esc(data)}" role="button"><td><div class="cli">${n.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(n.cliente_cod)} · </span>` : ""}${esc(n.cliente)}</div><div class="mt">NF ${esc(n.nf)}${n.pedido ? ` · pedido ${esc(n.pedido)}` : ""} · ${esc(primeiroNome(n.rca))}${n.orcamento ? ` · orç. ${esc(n.orcamento)}` : ""}</div></td>
     <td class="v">${brl2(n.valor)} <span class="chev">›</span></td></tr>`).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(tot)}</td></tr>`
@@ -606,6 +616,7 @@ function abrirNota(nf, data) {
   $("#det-sub").innerHTML = `<a href="#" id="det-back" style="color:var(--s1);text-decoration:none;font-weight:600">‹ Voltar</a> &nbsp; NF ${esc(n.nf)} · ${fmtData(n.data)}`;
   $("#det-sub").querySelector("#det-back").addEventListener("click", e => { e.preventDefault(); abrirNotas(data); });
   const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  $("#det-extra").innerHTML = "";
   $("#det-kv").innerHTML = campo("Vendedora", esc(n.rca)) + campo("Pedido", n.pedido ? esc(n.pedido) : "—") + campo("Orçamento", n.orcamento ? esc(n.orcamento) : "direto") + campo("Valor da nota", brl2(n.valor));
   $("#det-itens").previousElementSibling.textContent = "Itens";
   $("#det-itens").innerHTML = itens.length ? itens.map(i => `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}</div></td>
@@ -636,6 +647,8 @@ const fmtNum = n => Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 2
 const brl2 = v => (v == null ? "—" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
 const fmtQtd = q => Number(q).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 function contaUteis(y, m, ate) { let n = 0; for (let d = 1; d <= ate; d++) { const w = new Date(y, m, d).getDay(); if (w !== 0 && w !== 6) n++; } return n; }
+function fmtDataAno(s) { const d = new Date(s + "T00:00:00"); return isNaN(d) ? s : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }); }
+function anosDesde(s) { const d = new Date(s + "T00:00:00"); if (isNaN(d)) return ""; const m = Math.floor((refData() - d) / (30.44 * 864e5)); return m < 12 ? `${m} ${m === 1 ? "mês" : "meses"}` : `${Math.floor(m / 12)} ano${m >= 24 ? "s" : ""}`; }
 function fmtData(s) { const d = new Date(s + "T00:00:00"); return isNaN(d) ? s : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }); }
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
