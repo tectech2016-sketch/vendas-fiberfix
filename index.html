@@ -466,7 +466,7 @@ function render(d) {
   const todosAb = ab.slice().sort((a, b) => b.valor - a.valor).slice(0, 5);
   $("#o-top-sub").textContent = "· emitidos " + nomeP;
   const abMax = Math.max(1, ...todosAb.map(r => r.valor));
-  $("#o-top").innerHTML = todosAb.length ? todosAb.map(r => `<div class="row orc" data-num="${esc(r.num)}" role="button"><span class="name">${esc(r.cliente)}</span><span class="val">${brl(r.valor)}</span>
+  $("#o-top").innerHTML = todosAb.length ? todosAb.map(r => `<div class="row orc" data-num="${esc(r.num)}" role="button"><span class="name">${r.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(r.cliente_cod)} · </span>` : ""}${esc(r.cliente)}</span><span class="val">${brl(r.valor)}</span>
     <div class="track"><div class="fill" style="width:${(r.valor / abMax * 100).toFixed(1)}%"></div></div>
     <div class="meta">${esc(primeiroNome(r.rca))} · ${diasAberto(r)} dias em aberto${statusDe(r) === "V" ? ` · <span class="luc-bad">vencido</span>` : ""}</div></div>`).join("") : `<div class="empty">Nenhum orçamento em aberto ${nomeP}.</div>`;
   funnel($("#c-funil"), { emitidos_mes: L.length, abertos_qtd: ab.length, convertidos_mes: fat.length });
@@ -553,7 +553,7 @@ function renderLista() {
     (!FILTRO || (FILTRO === "aberto" ? aberto(r) : statusDe(r) === FILTRO)) &&
     (!q || [r.cliente, r.num, r.cliente_cod, r.rca, r.pedido, r.nf].some(v => String(v ?? "").toLowerCase().includes(q))));
   $("#o-lista").innerHTML = rows.length ? rows.map(r => `<tr class="orc" data-num="${esc(r.num)}" role="button" tabindex="0">
-    <td><div class="cli">${esc(r.cliente)}</div>
+    <td><div class="cli">${r.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(r.cliente_cod)} · </span>` : ""}${esc(r.cliente)}</div>
         <div class="mt">#${esc(r.num)} · ${fmtData(r.data)} · ${esc(primeiroNome(r.rca))}</div>
         <div class="mt"><span class="prazo">⏱ ${esc(r.cond_pagto || "—")}</span>${r.cobranca ? ` · ${esc(r.cobranca)}` : ""}${r.perc_lucro != null ? ` · <span class="${r.perc_lucro < 10 ? "luc-bad" : ""}">${fmtNum(r.perc_lucro)}% luc.</span>` : ""}</div></td>
     <td class="v"><div>${brl(r.valor)}</div><div class="mt"><span class="pill ${posClass(statusDe(r))}">${esc(posLabel(statusDe(r)))}</span></div>
