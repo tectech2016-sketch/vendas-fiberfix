@@ -580,7 +580,7 @@ function abrirOrc(num) {
     $("#det-kv").innerHTML += campo("CNPJ / CPF", c.cnpj ? fmtDoc(c.cnpj) : null) + campo("Bairro", c.bairro || null) + campo("Cidade", [c.cidade, c.uf].filter(Boolean).join(" / ") || null) + campo("Cliente desde", c.desde ? fmtDataAno(c.desde) + ` (${anosDesde(c.desde)})` : null)
       + campo("Compras 12 meses", c.qtd_12m ? `${c.qtd_12m} nota${c.qtd_12m > 1 ? "s" : ""} · ${brl(c.total_12m)}` : "nenhuma")
       + campo("Limite de crédito", c.limite != null ? brl(c.limite) : null)
-      + campo("Em aberto (usado)", c.usado != null ? `${brl(c.usado)}${c.limite ? ` · ${fmtNum(Math.round(c.usado / c.limite * 100))}%` : ""}${c.vencido ? ` · <span class="luc-bad">vencido ${brl(c.vencido)}</span>` : ""}` : null);
+      + (c.usado != null ? `<div class="kv fin" data-cod="${esc(r.cliente_cod)}" data-num="${esc(r.num)}" role="button" style="cursor:pointer"><span>Em aberto (usado) <span class="chev">›</span></span><b>${brl(c.usado)}${c.limite ? ` · ${fmtNum(Math.round(c.usado / c.limite * 100))}%` : ""}${c.vencido ? ` · <span class="luc-bad">vencido ${brl(c.vencido)}</span>` : ""}</b></div>` : "");
     const uc = c.ult_compras || [];
     $("#det-extra").innerHTML = `<h4 class="label" style="margin:14px 0 4px">Últimas compras</h4><table>${uc.length ? uc.map(n => `<tr><td><div class="cli">${fmtDataAno(n.data)} · NF ${esc(n.nf ?? "—")}</div><div class="mt">${esc(n.cond_pagto || "—")}</div></td><td class="v">${brl2(n.valor)}</td></tr>`).join("") : `<tr><td class="empty">Sem compras registradas.</td></tr>`}</table>`;
   } else $("#det-extra").innerHTML = "";
@@ -622,6 +622,28 @@ function abrirNota(nf, data) {
   $("#det-itens").innerHTML = itens.length ? itens.map(i => `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}</div></td>
     <td class="v">${brl2(i.total ?? i.qtd * i.unitario)}</td></tr>`).join("") + `<tr class="tot"><td>Total dos itens</td><td class="v">${brl2(soma)}</td></tr>`
     : `<tr><td class="empty">Itens não disponíveis.</td></tr>`;
+  $("#det .sheet-b").scrollTop = 0;
+}
+function abrirFin(cod, numOrca) {
+  const c = (DATA.clientes || {})[String(cod)]; if (!c) return;
+  const r = (DATA.orcamentos.lista || []).find(x => String(x.num) === String(numOrca));
+  const ref = refData(); const dias = v => Math.round((ref - new Date(v + "T00:00:00")) / 864e5);
+  $("#det-title").textContent = (cod ? cod + " · " : "") + (r ? r.cliente : "");
+  $("#det-sub").innerHTML = `<a href="#" id="det-back" style="color:var(--s1);text-decoration:none;font-weight:600">‹ Voltar</a> &nbsp; Financeiro do cliente`;
+  $("#det-sub").querySelector("#det-back").addEventListener("click", e => { e.preventDefault(); abrirOrc(numOrca); });
+  const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  const fz = c.fin_12m || {};
+  $("#det-kv").innerHTML = campo("Limite de crédito", brl(c.limite)) + campo("Em aberto", `${brl(c.usado)}${c.limite ? ` · ${fmtNum(Math.round(c.usado / c.limite * 100))}% do limite` : ""}`)
+    + campo("Vencido", c.vencido ? `<span class="luc-bad">${brl(c.vencido)}</span>` : "R$ 0")
+    + campo("Pagos 12 meses", fz.pagos ? `${fz.pagos} títulos · ${brl(fz.valor_pago)}` : "nenhum")
+    + campo("Atraso médio", fz.pagos ? `<span class="${fz.atraso_medio > 5 ? "luc-bad" : ""}">${fmtNum(fz.atraso_medio)} dias</span>` : null)
+    + campo("Pagos com atraso", fz.pagos ? `${fz.pagos_com_atraso} de ${fz.pagos} (${fmtNum(Math.round(fz.pagos_com_atraso / fz.pagos * 100))}%) · maior ${fz.maior_atraso} d` : null);
+  const ab = (c.tit_abertos || []), pg = (c.tit_pagos || []);
+  const linhaAb = t => { const d = dias(t.venc); return `<tr><td><div class="cli">${esc(t.dup ?? "—")}${t.prest ? "/" + esc(t.prest) : ""} · venc. ${fmtDataAno(t.venc)}</div><div class="mt">${esc(t.cob || "")}${d > 0 ? ` · <span class="luc-bad">${d} dias de atraso</span>` : ` · vence em ${-d} dias`}</div></td><td class="v">${brl2(t.valor)}</td></tr>`; };
+  const linhaPg = t => `<tr><td><div class="cli">${esc(t.dup ?? "—")}${t.prest ? "/" + esc(t.prest) : ""} · venc. ${fmtDataAno(t.venc)} → pago ${fmtDataAno(t.pago)}</div><div class="mt">${esc(t.cob || "")}${t.atraso > 0 ? ` · <span class="luc-bad">${t.atraso} dias de atraso</span>` : " · em dia"}</div></td><td class="v">${brl2(t.valor)}</td></tr>`;
+  $("#det-extra").innerHTML = `<h4 class="label" style="margin:14px 0 4px">Títulos em aberto</h4><table>${ab.length ? ab.map(linhaAb).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(ab.reduce((s, t) => s + t.valor, 0))}</td></tr>` : `<tr><td class="empty">Nenhum título em aberto.</td></tr>`}</table>`;
+  $("#det-itens").previousElementSibling.textContent = "Últimos títulos liquidados";
+  $("#det-itens").innerHTML = pg.length ? pg.map(linhaPg).join("") : `<tr><td class="empty">Nenhum título liquidado nos últimos 12 meses.</td></tr>`;
   $("#det .sheet-b").scrollTop = 0;
 }
 function renderRankingConv(L, diretos) {
@@ -702,6 +724,7 @@ $("#o-top").addEventListener("click", e => { const el = e.target.closest(".orc")
 $("#o-lista").addEventListener("keydown", e => { if (e.key === "Enter") { const tr = e.target.closest("tr.orc"); if (tr) abrirOrc(tr.dataset.num); } });
 $("#det-close").addEventListener("click", () => $("#det").close());
 $("#card-hoje").addEventListener("click", () => abrirNotas(hojeStr(refData())));
+$("#det-kv").addEventListener("click", e => { const el = e.target.closest(".kv.fin"); if (el) abrirFin(el.dataset.cod, el.dataset.num); });
 $("#det-itens").addEventListener("click", e => { const tr = e.target.closest("tr.orc[data-nf]"); if (tr) abrirNota(tr.dataset.nf, tr.dataset.data); });
 $("#det").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 // Configuração
