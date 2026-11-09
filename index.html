@@ -602,7 +602,7 @@ function abrirNotas(data) {
   $("#det-kv").innerHTML = Object.entries(porV).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="kv"><span>${esc(primeiroNome(k))}</span><b>${brl(v)}</b></div>`).join("");
   $("#det-extra").innerHTML = "";
   $("#det-itens").previousElementSibling.textContent = "Notas";
-  $("#det-itens").innerHTML = ns.length ? ns.map(n => `<tr class="orc" data-nf="${esc(n.nf)}" data-data="${esc(data)}" role="button"><td><div class="cli">${n.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(n.cliente_cod)} · </span>` : ""}${esc(n.cliente)}</div><div class="mt">NF ${esc(n.nf)}${n.pedido ? ` · pedido ${esc(n.pedido)}` : ""} · ${esc(primeiroNome(n.rca))}${n.orcamento ? ` · orç. ${esc(n.orcamento)}` : ""}</div></td>
+  $("#det-itens").innerHTML = ns.length ? ns.map(n => `<tr class="orc" data-nf="${esc(n.nf)}" data-data="${esc(data)}" role="button"><td><div class="cli">${n.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(n.cliente_cod)} · </span>` : ""}${esc(n.cliente)}</div><div class="mt">NF ${esc(n.nf)}${n.pedido ? ` · pedido ${esc(n.pedido)}` : ""} · ${esc(primeiroNome(n.rca))}${n.orcamento ? ` · orç. ${esc(n.orcamento)}` : ""}</div>${n.cond_pagto ? `<div class="mt"><span class="prazo">⏱ ${esc(n.cond_pagto)}</span></div>` : ""}</td>
     <td class="v">${brl2(n.valor)} <span class="chev">›</span></td></tr>`).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(tot)}</td></tr>`
     : `<tr><td class="empty">Nenhuma nota faturada neste dia.</td></tr>`;
   if (!$("#det").open) $("#det").showModal();
@@ -617,7 +617,7 @@ function abrirNota(nf, data) {
   $("#det-sub").querySelector("#det-back").addEventListener("click", e => { e.preventDefault(); abrirNotas(data); });
   const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
   $("#det-extra").innerHTML = "";
-  $("#det-kv").innerHTML = campo("Vendedora", esc(n.rca)) + campo("Pedido", n.pedido ? esc(n.pedido) : "—") + campo("Orçamento", n.orcamento ? esc(n.orcamento) : "direto") + campo("Valor da nota", brl2(n.valor));
+  $("#det-kv").innerHTML = campo("Vendedora", esc(n.rca)) + campo("Pedido", n.pedido ? esc(n.pedido) : "—") + campo("Plano de pagamento", n.cond_pagto ? esc(n.cond_pagto) : null) + campo("Orçamento", n.orcamento ? esc(n.orcamento) : "direto") + campo("Valor da nota", brl2(n.valor));
   $("#det-itens").previousElementSibling.textContent = "Itens";
   $("#det-itens").innerHTML = itens.length ? itens.map(i => `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}</div></td>
     <td class="v">${brl2(i.total ?? i.qtd * i.unitario)}</td></tr>`).join("") + `<tr class="tot"><td>Total dos itens</td><td class="v">${brl2(soma)}</td></tr>`
