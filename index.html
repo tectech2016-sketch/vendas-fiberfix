@@ -592,7 +592,7 @@ function abrirNotas(data) {
   const porV = {}; ns.forEach(n => { porV[n.rca] = (porV[n.rca] || 0) + n.valor; });
   $("#det-kv").innerHTML = Object.entries(porV).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="kv"><span>${esc(primeiroNome(k))}</span><b>${brl(v)}</b></div>`).join("");
   $("#det-itens").previousElementSibling.textContent = "Notas";
-  $("#det-itens").innerHTML = ns.length ? ns.map(n => `<tr class="orc" data-nf="${esc(n.nf)}" data-data="${esc(data)}" role="button"><td><div class="cli">${esc(n.cliente)}</div><div class="mt">NF ${esc(n.nf)}${n.pedido ? ` · pedido ${esc(n.pedido)}` : ""} · ${esc(primeiroNome(n.rca))}${n.orcamento ? ` · orç. ${esc(n.orcamento)}` : ""}</div></td>
+  $("#det-itens").innerHTML = ns.length ? ns.map(n => `<tr class="orc" data-nf="${esc(n.nf)}" data-data="${esc(data)}" role="button"><td><div class="cli">${n.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(n.cliente_cod)} · </span>` : ""}${esc(n.cliente)}</div><div class="mt">NF ${esc(n.nf)}${n.pedido ? ` · pedido ${esc(n.pedido)}` : ""} · ${esc(primeiroNome(n.rca))}${n.orcamento ? ` · orç. ${esc(n.orcamento)}` : ""}</div></td>
     <td class="v">${brl2(n.valor)} <span class="chev">›</span></td></tr>`).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(tot)}</td></tr>`
     : `<tr><td class="empty">Nenhuma nota faturada neste dia.</td></tr>`;
   if (!$("#det").open) $("#det").showModal();
@@ -602,7 +602,7 @@ function abrirNota(nf, data) {
   const n = notasDoDia(data).find(x => String(x.nf) === String(nf)); if (!n) return;
   const itens = n.itens || [];
   const soma = itens.reduce((s, i) => s + (i.total ?? i.qtd * i.unitario), 0);
-  $("#det-title").textContent = n.cliente || "";
+  $("#det-title").textContent = (n.cliente_cod ? n.cliente_cod + " · " : "") + (n.cliente || "");
   $("#det-sub").innerHTML = `<a href="#" id="det-back" style="color:var(--s1);text-decoration:none;font-weight:600">‹ Voltar</a> &nbsp; NF ${esc(n.nf)} · ${fmtData(n.data)}`;
   $("#det-sub").querySelector("#det-back").addEventListener("click", e => { e.preventDefault(); abrirNotas(data); });
   const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
