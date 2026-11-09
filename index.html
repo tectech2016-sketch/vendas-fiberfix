@@ -592,10 +592,26 @@ function abrirNotas(data) {
   const porV = {}; ns.forEach(n => { porV[n.rca] = (porV[n.rca] || 0) + n.valor; });
   $("#det-kv").innerHTML = Object.entries(porV).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="kv"><span>${esc(primeiroNome(k))}</span><b>${brl(v)}</b></div>`).join("");
   $("#det-itens").previousElementSibling.textContent = "Notas";
-  $("#det-itens").innerHTML = ns.length ? ns.map(n => `<tr><td><div class="cli">${esc(n.cliente)}</div><div class="mt">NF ${esc(n.nf)}${n.pedido ? ` · pedido ${esc(n.pedido)}` : ""} · ${esc(primeiroNome(n.rca))}${n.orcamento ? ` · orç. ${esc(n.orcamento)}` : ""}</div></td>
-    <td class="v">${brl2(n.valor)}</td></tr>`).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(tot)}</td></tr>`
+  $("#det-itens").innerHTML = ns.length ? ns.map(n => `<tr class="orc" data-nf="${esc(n.nf)}" data-data="${esc(data)}" role="button"><td><div class="cli">${esc(n.cliente)}</div><div class="mt">NF ${esc(n.nf)}${n.pedido ? ` · pedido ${esc(n.pedido)}` : ""} · ${esc(primeiroNome(n.rca))}${n.orcamento ? ` · orç. ${esc(n.orcamento)}` : ""}</div></td>
+    <td class="v">${brl2(n.valor)} <span class="chev">›</span></td></tr>`).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(tot)}</td></tr>`
     : `<tr><td class="empty">Nenhuma nota faturada neste dia.</td></tr>`;
-  $("#det").showModal();
+  if (!$("#det").open) $("#det").showModal();
+  $("#det .sheet-b").scrollTop = 0;
+}
+function abrirNota(nf, data) {
+  const n = notasDoDia(data).find(x => String(x.nf) === String(nf)); if (!n) return;
+  const itens = n.itens || [];
+  const soma = itens.reduce((s, i) => s + (i.total ?? i.qtd * i.unitario), 0);
+  $("#det-title").textContent = n.cliente || "";
+  $("#det-sub").innerHTML = `<a href="#" id="det-back" style="color:var(--s1);text-decoration:none;font-weight:600">‹ Voltar</a> &nbsp; NF ${esc(n.nf)} · ${fmtData(n.data)}`;
+  $("#det-sub").querySelector("#det-back").addEventListener("click", e => { e.preventDefault(); abrirNotas(data); });
+  const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  $("#det-kv").innerHTML = campo("Vendedora", esc(n.rca)) + campo("Pedido", n.pedido ? esc(n.pedido) : "—") + campo("Orçamento", n.orcamento ? esc(n.orcamento) : "direto") + campo("Valor da nota", brl2(n.valor));
+  $("#det-itens").previousElementSibling.textContent = "Itens";
+  $("#det-itens").innerHTML = itens.length ? itens.map(i => `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}</div></td>
+    <td class="v">${brl2(i.total ?? i.qtd * i.unitario)}</td></tr>`).join("") + `<tr class="tot"><td>Total dos itens</td><td class="v">${brl2(soma)}</td></tr>`
+    : `<tr><td class="empty">Itens não disponíveis.</td></tr>`;
+  $("#det .sheet-b").scrollTop = 0;
 }
 function renderRankingConv(L, diretos) {
   const por = {};
@@ -672,6 +688,7 @@ $("#o-top").addEventListener("click", e => { const el = e.target.closest(".orc")
 $("#o-lista").addEventListener("keydown", e => { if (e.key === "Enter") { const tr = e.target.closest("tr.orc"); if (tr) abrirOrc(tr.dataset.num); } });
 $("#det-close").addEventListener("click", () => $("#det").close());
 $("#card-hoje").addEventListener("click", () => abrirNotas(hojeStr(refData())));
+$("#det-itens").addEventListener("click", e => { const tr = e.target.closest("tr.orc[data-nf]"); if (tr) abrirNota(tr.dataset.nf, tr.dataset.data); });
 $("#det").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 // Configuração
 const dlg = $("#dlg");
