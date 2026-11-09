@@ -577,7 +577,7 @@ function abrirOrc(num) {
     campo("Pedido gerado", r.pedido ? esc(r.pedido) : "—") + campo("NF gerada", r.nf ? esc(r.nf) : "—");
   const c = (DATA.clientes || {})[String(r.cliente_cod)];
   if (c) {
-    $("#det-kv").innerHTML += campo("Cidade", [c.cidade, c.uf].filter(Boolean).join(" / ") || null) + campo("Cliente desde", c.desde ? fmtDataAno(c.desde) + ` (${anosDesde(c.desde)})` : null)
+    $("#det-kv").innerHTML += campo("CNPJ / CPF", c.cnpj ? fmtDoc(c.cnpj) : null) + campo("Bairro", c.bairro || null) + campo("Cidade", [c.cidade, c.uf].filter(Boolean).join(" / ") || null) + campo("Cliente desde", c.desde ? fmtDataAno(c.desde) + ` (${anosDesde(c.desde)})` : null)
       + campo("Compras 12 meses", c.qtd_12m ? `${c.qtd_12m} nota${c.qtd_12m > 1 ? "s" : ""} · ${brl(c.total_12m)}` : "nenhuma")
       + campo("Limite de crédito", c.limite != null ? brl(c.limite) : null)
       + campo("Em aberto (usado)", c.usado != null ? `${brl(c.usado)}${c.limite ? ` · ${fmtNum(Math.round(c.usado / c.limite * 100))}%` : ""}${c.vencido ? ` · <span class="luc-bad">vencido ${brl(c.vencido)}</span>` : ""}` : null);
@@ -647,6 +647,7 @@ const fmtNum = n => Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 2
 const brl2 = v => (v == null ? "—" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
 const fmtQtd = q => Number(q).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 function contaUteis(y, m, ate) { let n = 0; for (let d = 1; d <= ate; d++) { const w = new Date(y, m, d).getDay(); if (w !== 0 && w !== 6) n++; } return n; }
+function fmtDoc(v) { const d = String(v).replace(/\D/g, ""); if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5"); if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"); return v; }
 function fmtDataAno(s) { const d = new Date(s + "T00:00:00"); return isNaN(d) ? s : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }); }
 function anosDesde(s) { const d = new Date(s + "T00:00:00"); if (isNaN(d)) return ""; const m = Math.floor((refData() - d) / (30.44 * 864e5)); return m < 12 ? `${m} ${m === 1 ? "mês" : "meses"}` : `${Math.floor(m / 12)} ano${m >= 24 ? "s" : ""}`; }
 function fmtData(s) { const d = new Date(s + "T00:00:00"); return isNaN(d) ? s : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }); }
