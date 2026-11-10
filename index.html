@@ -93,6 +93,14 @@ h2 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
 .mstats.t3{margin:0;border:0;padding:0} .mstats.t3 b{font-size:17px}
 .mproj{margin-top:12px;font-size:12.5px;color:var(--ink2);background:var(--bg);border-radius:10px;padding:8px 10px} .mproj:empty{display:none}
 @media(max-width:380px){.mstats b{font-size:13px}}
+.vrow{padding:14px 0;border-top:1px solid var(--grid)} .vrow:first-child{border-top:0}
+.vtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.vnome{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;min-width:0}
+.vpos{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--grid);font-size:12px;font-weight:700;color:var(--ink2);flex:none}
+.vval{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.vtrack{position:relative;height:8px;background:var(--grid);border-radius:4px;margin-top:8px} .vtrack>div{height:100%;border-radius:4px}
+.vtrack>i{position:absolute;top:-3px;width:2px;height:14px;background:var(--ink);border-radius:1px}
+.vsub{font-size:12px;color:var(--ink2);margin-top:6px}
 .bars{display:flex;flex-direction:column;gap:10px}
 .row{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;font-size:13px}
 .row .name{font-weight:500}
@@ -240,7 +248,8 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
   <section id="tab-vend" hidden>
     <div class="card" id="v-equipe" hidden style="margin-top:4px"></div>
     <h2 style="margin-top:4px">Ranking do mês <small>por vendedora · meta do Winthor</small></h2>
-    <div class="card bars" id="v-rank"></div>
+    <div class="card" id="v-rank" style="padding:4px 16px"></div>
+    <div id="v-canais-wrap" hidden><h2>Canais <small>sem meta</small></h2><div class="card" id="v-canais" style="padding:4px 16px"></div></div>
   </section>
 </main>
 
@@ -526,27 +535,38 @@ function render(d) {
   const vs = [...(f.por_vendedor || [])].sort((a, b) => b.valor - a.valor);
   const vmax = Math.max(1, ...vs.map(v => v.valor));
   const temMeta = vs.some(v => v.meta > 0);
-  $("#v-rank").innerHTML = vs.length ? vs.map((v, i) => {
-    const p = pct(v.valor, v.valor_mes_anterior);
-    let fill, mark = "", linhaMeta = "";
-    if (v.meta > 0) {
-      const at = v.valor / v.meta * 100, esp = v.meta_ate_hoje || 0, dif = v.valor - esp;
-      fill = `<div class="fill${dif < 0 ? " late" : ""}" style="width:${Math.min(100, at).toFixed(1)}%"></div>`;
-      mark = esp ? `<div class="mark" style="left:${Math.min(100, esp / v.meta * 100).toFixed(1)}%" title="meta até hoje"></div>` : "";
-      linhaMeta = `<div class="meta">Meta ${brl(v.meta)} · <b style="color:var(--ink)">${fmtNum(Math.round(at))}%</b>${esp ? ` · até hoje ${brl(esp)} → <span class="${dif >= 0 ? "meta-ok" : "meta-late"}">${dif >= 0 ? "▲ adiantada" : "▼ atrasada"} ${brl(Math.abs(dif))}</span>` : ""}</div>`;
-    } else fill = `<div class="fill" style="width:${(v.valor / vmax * 100).toFixed(1)}%"></div>`;
-    return `<div class="row"><span class="name">${i + 1}. ${esc(v.nome)}</span><span class="val">${brl(v.valor)}</span>
-      <div class="track">${fill}${mark}</div>${linhaMeta}
-      <div class="meta">${v.pedidos} pedidos · ticket ${brl(v.pedidos ? v.valor / v.pedidos : null)}${p == null ? "" : ` · <span style="color:${p >= 0 ? "var(--good)" : "var(--bad)"}">${p >= 0 ? "▲" : "▼"} ${fmtPct(p)}</span> vs. mês ant.`}${v.meta > 0 || !temMeta ? "" : " · sem meta"}</div></div>`;
-  }).join("") : `<div class="empty">Sem dados.</div>`;
+  const com = vs.filter(v => v.meta > 0), sem = vs.filter(v => !(v.meta > 0));
+  const p1 = v => fmtNum(Math.round(v)) + "%";
+  const periodoAnt = () => { const r = refData(); const a = new Date(r.getFullYear(), r.getMonth() - 1, 1); const ult = new Date(r.getFullYear(), r.getMonth(), 0).getDate(); return `1–${Math.min(r.getDate(), ult)}/${MESES[a.getMonth()]}`; };
+  const cmp = v => { const b = v.valor_mes_anterior_mesmo_periodo; if (b == null || !(b > 0)) return "";
+    const p = pct(v.valor, b); return ` · <span style="color:${p >= 0 ? "var(--good)" : "var(--bad)"}">${p >= 0 ? "▲" : "▼"} ${fmtPct(p)}</span> vs. ${periodoAnt()}`; };
+  const linha = (v, i) => {
+    const tk = brl(v.pedidos ? v.valor / v.pedidos : null);
+    if (!(v.meta > 0)) return `<div class="vrow"><div class="vtop"><span class="vnome">${esc(v.nome)}</span><b class="vval">${brl(v.valor)}</b></div>
+      <div class="vtrack"><div style="width:${(v.valor / vmax * 100).toFixed(1)}%;background:var(--axis)"></div></div>
+      <div class="vsub">${v.pedidos} pedido${v.pedidos === 1 ? "" : "s"} · ticket ${tk}${cmp(v)}</div></div>`;
+    const at = v.valor / v.meta * 100, esp = v.meta_ate_hoje || 0, dif = v.valor - esp, ok = dif >= 0;
+    const pe = Math.min(100, esp / v.meta * 100);
+    return `<div class="vrow"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(v.nome)}</span>${esp ? `<span class="mpill ${ok ? "ok" : "late"}">${ok ? "▲" : "▼"} ${brl(Math.abs(dif))}</span>` : ""}</div>
+      <div class="vtop" style="margin-top:4px"><b class="vval">${brl(v.valor)}</b><span class="vsub" style="margin:0"><b style="color:var(--ink)">${p1(at)}</b> de ${brl(v.meta)}</span></div>
+      <div class="vtrack"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--s1)"}"></div>${esp ? `<i style="left:${pe.toFixed(1)}%"></i>` : ""}</div>
+      <div class="vsub">${v.pedidos} pedidos · ticket ${tk}${cmp(v)}</div></div>`;
+  };
+  $("#v-rank").innerHTML = com.length || sem.length ? com.map(linha).join("") : `<div class="empty">Sem dados.</div>`;
+  $("#v-canais-wrap").hidden = !sem.length; $("#v-canais").innerHTML = sem.map(linha).join("");
   const eq = $("#v-equipe");
   if (temMeta && f.meta_mes > 0) {
-    const at = f.mes / f.meta_mes * 100, dif = f.mes - (f.meta_ate_hoje || 0);
-    const comMeta = vs.filter(v => v.meta > 0), ok = comMeta.filter(v => v.valor >= (v.meta_ate_hoje || 0)).length;
+    const at = f.mes / f.meta_mes * 100, esp = f.meta_ate_hoje || 0, dif = f.mes - esp, ok = dif >= 0;
+    const nr = com.filter(v => v.valor >= (v.meta_ate_hoje || 0)).length;
+    const dec = f.dias_uteis_decorridos || 0, tot = f.dias_uteis_mes || 0, restam = tot - dec, falta = Math.max(0, f.meta_mes - f.mes);
+    const pe = Math.min(100, esp / f.meta_mes * 100);
     eq.hidden = false;
-    eq.innerHTML = `<div class="label">Equipe · meta do mês</div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div class="big">${fmtNum(Math.round(at))}%</div><div class="mtxt" style="text-align:right;margin:0">${brl(f.mes)} de <b>${brl(f.meta_mes)}</b></div></div>
-      <div class="mtxt">Até hoje: ${brl(f.meta_ate_hoje)} → <span class="${dif >= 0 ? "meta-ok" : "meta-late"}">${dif >= 0 ? "▲ adiantada" : "▼ atrasada"} ${brl(Math.abs(dif))}</span> · ${ok} de ${comMeta.length} no ritmo · ${f.dias_uteis_decorridos ?? "—"}/${f.dias_uteis_mes ?? "—"} dias úteis</div>`;
+    eq.innerHTML = `<div class="vtop"><div class="label" style="margin:0">Equipe · meta do mês</div><span class="mpill ${ok ? "ok" : "late"}">${ok ? "▲ Adiantada" : "▼ Atrasada"} ${brl(Math.abs(dif))}</span></div>
+      <div class="vtop" style="margin-top:8px;align-items:baseline"><div class="hero">${p1(at)}</div><span class="vsub" style="margin:0"><b style="color:var(--ink)">${brl(f.mes)}</b> de ${brl(f.meta_mes)}</span></div>
+      <div class="vtrack" style="height:12px;margin:12px 0 0"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--s1)"}"></div><i style="left:${pe.toFixed(1)}%;height:20px;top:-4px"></i></div>
+      <div class="mstats" style="margin-top:14px"><div><span>No ritmo</span><b>${nr} de ${com.length}</b><small>vendedoras</small></div>
+        <div><span>Faltam</span><b>${brl(falta)}</b><small>${fmtNum(Math.round(falta / f.meta_mes * 100))}% da meta</small></div>
+        <div><span>Precisa por dia</span><b>${restam > 0 ? brl(falta / restam) : "—"}</b><small>${restam} dias úteis</small></div></div>`;
   } else eq.hidden = true;
 }
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
