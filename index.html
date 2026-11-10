@@ -208,7 +208,6 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
       <div class="card"><div class="label" id="o-conv-label">Conversão no mês</div><div class="big" id="o-conv">—</div><div class="delta" id="o-conv-d"></div></div>
       <div class="card" id="o-fat-card" role="button" style="cursor:pointer"><div class="label" id="o-fat-label">Faturado no mês <span class="chev">›</span></div><div class="big" id="o-fat">—</div><div class="delta" id="o-fat-d"></div></div>
       <div class="card"><div class="label" id="o-cvt-label">Convertidos no mês</div><div class="big" id="o-cvt">—</div><div class="delta" id="o-cvt-d"></div></div>
-      <div class="card wide" id="o-parados" hidden style="border-left:4px solid var(--s1)"><div class="label">Orçamentos parados <small style="color:var(--muted)">· abertos há mais de 5 dias</small></div><div class="bars" id="o-parados-l" style="margin-top:8px"></div><div class="mtxt" id="o-parados-s"></div></div>
       <div class="card wide"><div class="label">Maiores orçamentos em aberto <small style="color:var(--muted)" id="o-top-sub"></small></div><div class="bars" id="o-top" style="margin-top:8px"></div></div>
       <div class="card wide"><div class="label" id="o-funil-label">Funil do mês</div><div class="chart" id="c-funil"></div></div>
     </div>
@@ -501,17 +500,6 @@ function render(d) {
   $("#o-cvt-label").textContent = `Convertidos ${nomeP}`;
   $("#o-cvt").textContent = fat.length;
   $("#o-cvt-d").className = "delta"; $("#o-cvt-d").textContent = `${brl(vFat)} em orçamentos que viraram pedido`;
-  const ref = refData(); const diasDe = r => Math.round((ref - new Date(r.data + "T00:00:00")) / 864e5);
-  const parados = (o.lista || []).filter(r => aberto(r) && diasDe(r) > 5).sort((a, b) => b.valor - a.valor);
-  const pc = $("#o-parados"); pc.hidden = !parados.length;
-  if (parados.length) {
-    const top = parados.slice(0, 8), pmax = Math.max(1, ...top.map(r => r.valor));
-    $("#o-parados-l").innerHTML = top.map(r => { const tel = (r.telefone || "").replace(/\D/g, ""); const wa = tel.length >= 10 ? `https://wa.me/55${tel}` : "";
-      return `<div class="row" data-num="${esc(r.num)}" role="button"><span class="name">${r.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(r.cliente_cod)} · </span>` : ""}${esc(r.cliente)}</span><span class="val">${brl(r.valor)}</span>
-        <div class="track"><div class="fill" style="width:${(r.valor / pmax * 100).toFixed(1)}%"></div></div>
-        <div class="meta">${esc(primeiroNome(r.rca))} · <b class="luc-bad">${diasDe(r)} dias parado</b>${r.telefone ? ` · ${esc(r.telefone)}` : ""}${wa ? ` · <a href="${wa}" target="_blank" rel="noopener" style="color:var(--s1);font-weight:600;text-decoration:none" onclick="event.stopPropagation()">WhatsApp ›</a>` : ""}</div></div>`; }).join("");
-    $("#o-parados-s").textContent = `${parados.length} orçamento${parados.length > 1 ? "s" : ""} · ${brl(parados.reduce((s, r) => s + r.valor, 0))} parados${parados.length > 8 ? ` · mostrando os 8 maiores` : ""}`;
-  }
   const todosAb = ab.slice().sort((a, b) => b.valor - a.valor).slice(0, 5);
   $("#o-top-sub").textContent = "· emitidos " + nomeP;
   const abMax = Math.max(1, ...todosAb.map(r => r.valor));
@@ -861,7 +849,6 @@ $("#card-hoje").addEventListener("click", () => abrirNotas(hojeStr(refData())));
 $("#det-kv").addEventListener("click", e => { const el = e.target.closest(".kv.fin"); if (el) abrirFin(el.dataset.cod, el.dataset.num); });
 $("#det-itens").addEventListener("click", e => { const tr = e.target.closest("tr.orc[data-nf]"); if (tr) abrirNota(tr.dataset.nf, tr.dataset.data, tr.dataset.per); });
 $("#o-fat-card").addEventListener("click", abrirNotasPeriodo);
-$("#o-parados-l").addEventListener("click", e => { const r = e.target.closest(".row[data-num]"); if (r) abrirOrc(+r.dataset.num); });
 $("#det").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 // Configuração
 const dlg = $("#dlg");
