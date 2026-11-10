@@ -174,7 +174,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
       <div class="card"><div class="label">Ticket médio</div><div class="big" id="k-tkt">—</div></div>
     </div>
     <div id="pa-wrap" hidden>
-    <h2>Pedidos em andamento <small>rotina 336 · ainda não faturados</small></h2>
+    <h2>Pedidos em andamento <small>rotina 336 · liberados e bloqueados</small></h2>
     <div class="card" style="margin-bottom:14px">
       <div class="pa-resumo" id="pa-resumo"></div>
       <div class="seg wide" id="pa-seg" style="display:flex;margin:10px 0 6px"></div>
@@ -540,32 +540,27 @@ function renderMeses(f, now) {
   const tot = ano.reduce((s, r) => s + r.valor, 0);
   $("#c-ano-sub").textContent = now.getFullYear() + " · total " + brl(tot);
 }
-const PA_ETAPAS = [["bloq", "Bloqueado"], ["pend", "Pendente"], ["lib", "Liberado · aguarda mapa"], ["sep", "Em separação"], ["conf", "Conferido · aguarda faturar"]];
+const PA_ETAPAS = [["bloq", "Bloqueado"], ["lib", "Liberado"]];
+const PA_COR = { bloq: "#d1242f", lib: "#1f6feb" };
 let PAFILTRO = "todos";
-function etapaPed(p) {
-  if (p.pos === "B") return "bloq";
-  if (p.pos === "P") return "pend";
-  if (p.conf_fim || p.pos === "M") return "conf";
-  if (p.mapa || p.sep_ini) return "sep";
-  return "lib";
-}
+function etapaPed(p) { return p.pos === "B" ? "bloq" : "lib"; }
 function hhmm(iso) { if (!iso) return ""; const d = new Date(iso); const hoje = refData(); const mesmo = d.toDateString() === hoje.toDateString();
   return (mesmo ? "" : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " ") + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); }
 function haQuanto(iso) { if (!iso) return ""; const m = Math.round((refData() - new Date(iso)) / 60000); if (m < 60) return m + " min"; const h = Math.floor(m / 60); return h < 24 ? h + " h" : Math.floor(h / 24) + " d"; }
 function renderAndamento(d) {
-  const L = d.pedidos_andamento; const wrap = $("#pa-wrap");
-  if (!Array.isArray(L)) { wrap.hidden = true; return; }
+  const L0 = d.pedidos_andamento; const wrap = $("#pa-wrap");
+  if (!Array.isArray(L0)) { wrap.hidden = true; return; }
+  const L = L0.filter(p => p.pos === "B" || p.pos === "L");
   wrap.hidden = false;
   const grupos = {}; PA_ETAPAS.forEach(([k]) => grupos[k] = []); L.forEach(p => grupos[etapaPed(p)].push(p));
-  const cor = { bloq: "var(--bad)", pend: "var(--warn)", lib: "var(--seq-lo)", sep: "var(--s1)", conf: "var(--ink2)" };
-  const curto = { bloq: "Bloqueados", pend: "Pendentes", lib: "Liberados", sep: "Em separação", conf: "Conferidos" };
+  const cor = PA_COR; const curto = { bloq: "Bloqueados", lib: "Liberados" };
   const tot = L.reduce((s, p) => s + p.valor, 0);
   $("#pa-resumo").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:baseline"><div><span class="big">${L.length}</span> <span class="mtxt" style="margin:0">pedidos</span></div><div class="mtxt" style="margin:0"><b>${brl(tot)}</b> a faturar</div></div>
     <div class="pa-bar">${PA_ETAPAS.map(([k]) => grupos[k].length ? `<span style="width:${grupos[k].length / L.length * 100}%;background:${cor[k]}"></span>` : "").join("")}</div>
     <div class="pa-leg">${PA_ETAPAS.filter(([k]) => grupos[k].length).map(([k]) => `<span><i style="background:${cor[k]}"></i><b>${grupos[k].length}</b> ${curto[k]} · ${brl(grupos[k].reduce((s, p) => s + p.valor, 0))}</span>`).join("")}</div>`;
-  $("#pa-seg").innerHTML = [["todos", "Todos"], ["bloq", "Bloq."], ["lib", "Liberado"], ["sep", "Separação"], ["conf", "Conferido"]].map(([k, n]) => `<button data-k="${k}" aria-pressed="${PAFILTRO === k}">${n}</button>`).join("");
+  $("#pa-seg").innerHTML = [["todos", "Todos"], ["lib", "Liberados"], ["bloq", "Bloqueados"]].map(([k, n]) => `<button data-k="${k}" aria-pressed="${PAFILTRO === k}">${n}</button>`).join("");
   const lista = (PAFILTRO === "todos" ? L : grupos[PAFILTRO] || []).slice().sort((a, b) => (a.digitado || "").localeCompare(b.digitado || ""));
-  const pillCls = { bloq: "bad", pend: "warn", lib: "open", sep: "open", conf: "ok" };
+
   const nomeEt = Object.fromEntries(PA_ETAPAS);
   $("#pa-lista").innerHTML = lista.length ? lista.map(p => { const et = etapaPed(p);
     const auto = !p.liberado && p.pos !== "B" && p.pos !== "P";
@@ -573,16 +568,16 @@ function renderAndamento(d) {
     const ult = passos.filter(x => x[1]).pop();
     return `<tr class="orc" data-ped="${esc(p.num)}" role="button"><td>
       <div class="cli">${p.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(p.cliente_cod)} · </span>` : ""}${esc(p.cliente)}</div>
-      <div class="mt">#${esc(p.num)} · ${esc(primeiroNome(p.rca))} · digitado há ${haQuanto(p.digitado)}${p.motivo ? ` · <span class="luc-bad">${esc(p.motivo)}</span>` : ""}</div>
-      <div class="tl"><span class="dots">${passos.map(([, t]) => `<i class="${t ? "on" : ""}"></i>`).join("")}</span>${ult ? (ult[1] === "auto" ? "Liberado direto (sem bloqueio)" : `${ult[0]} ${hhmm(ult[1])}`) : ""}</div></td>
-      <td class="v">${brl2(p.valor)}<br><span class="pill ${pillCls[et]}">${nomeEt[et].split(" · ")[0]}</span></td></tr>`; }).join("")
+      <div class="mt">#${esc(p.num)} · ${esc(primeiroNome(p.rca))} · digitado há ${haQuanto(p.digitado)}${p.motivo ? ` · <b style="color:${PA_COR.bloq}">${esc(p.motivo)}</b>` : ""}</div>
+      <div class="tl"><span class="dots">${passos.map(([, t]) => `<i style="${t ? "background:" + PA_COR[et] : ""}"></i>`).join("")}</span>${ult ? (ult[1] === "auto" ? "Liberado direto (sem bloqueio)" : `${ult[0]} ${hhmm(ult[1])}`) : ""}</div></td>
+      <td class="v">${brl2(p.valor)}<br><span class="pill" style="background:${PA_COR[et]};color:#fff">${nomeEt[et]}</span></td></tr>`; }).join("")
     : `<tr><td class="empty">Nenhum pedido nesta etapa.</td></tr>`;
 }
 function abrirPed(num) {
   const p = (DATA.pedidos_andamento || []).find(x => String(x.num) === String(num)); if (!p) return;
   const et = etapaPed(p); const nomeEt = Object.fromEntries(PA_ETAPAS);
   $("#det-title").textContent = (p.cliente_cod ? p.cliente_cod + " · " : "") + p.cliente;
-  $("#det-sub").innerHTML = `Pedido #${esc(p.num)} · <b>${esc(nomeEt[et])}</b> · há ${haQuanto(p.digitado)}`;
+  $("#det-sub").innerHTML = `Pedido #${esc(p.num)} · <span class="pill" style="background:${PA_COR[et]};color:#fff">${esc(nomeEt[et])}</span> · digitado há ${haQuanto(p.digitado)}`;
   const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
   $("#det-kv").innerHTML = campo("Vendedora", esc(p.rca)) + campo("Valor", brl2(p.valor)) + campo("Plano de pagamento", esc(p.cond_pagto)) + campo("Orçamento", p.orcamento ? esc(p.orcamento) : "direto")
     + campo("Carga", p.carga ? esc(p.carga) : null) + campo("Motivo", p.motivo ? `<span class="luc-bad">${esc(p.motivo)}</span>` : null);
