@@ -176,7 +176,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
           <div class="seg" id="m-seg"><button data-p="dia">Hoje</button><button data-p="semana">Semana</button><button data-p="quinzena">Quinzena</button><button data-p="mes">Mês</button></div></div>
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:6px"><div class="big" id="k-marg">—</div><div class="mtxt" id="k-marg-vals" style="text-align:right;margin:0"></div></div>
         <div class="mtxt" id="k-marg-d"></div></div>
-      <div class="card"><div class="label">Pedidos no mês</div><div class="big" id="k-ped">—</div></div>
+      <div class="card"><div class="label">Lucro bruto hoje</div><div class="big" id="k-lb">—</div><div class="mtxt" id="k-lb-sub" style="margin-top:2px"></div></div>
       <div class="card"><div class="label">Ticket médio</div><div class="big" id="k-tkt">—</div></div>
     </div>
     <div id="pa-wrap" hidden>
@@ -458,7 +458,9 @@ function render(d) {
   renderAndamento(d);
   renderMargem();
   renderAlerta(d);
-  $("#k-ped").textContent = f.pedidos_mes ?? "—";
+  { const nl = notasDoDia(hojeStr(isNaN(dt) ? hoje() : dt)); const v = nl.reduce((a, n) => a + n.valor, 0), c = nl.reduce((a, n) => a + (n.custo || 0), 0);
+    $("#k-lb").textContent = nl.length ? brl(v - c) : "—";
+    $("#k-lb-sub").textContent = !nl.length ? "nenhuma nota ainda" : v ? `margem ${((v - c) / v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%` : ""; }
   $("#k-tkt").textContent = brl(f.ticket_medio);
   const now = isNaN(dt) ? hoje() : dt;
   const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
