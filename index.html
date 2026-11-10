@@ -217,7 +217,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
     </div>
     <div class="grid">
       <div class="card"><div class="label">Orçamentos abertos</div><div class="big" id="o-abertos">—</div><div class="delta" id="o-abertos-v"></div></div>
-      <div class="card"><div class="label" id="o-conv-label">Conversão no mês</div><div class="big" id="o-conv">—</div><div class="delta" id="o-conv-d"></div></div>
+      <div class="card"><div class="label" id="o-conv-label">Conversão no mês</div><div class="big" id="o-conv">—</div><div class="delta" id="o-conv-d" style="display:block;line-height:1.4"></div></div>
       <div class="card" id="o-fat-card" role="button" style="cursor:pointer"><div class="label" id="o-fat-label">Faturado no mês <span class="chev">›</span></div><div class="big" id="o-fat">—</div><div class="delta" id="o-fat-d"></div></div>
       <div class="card"><div class="label" id="o-cvt-label">Convertidos no mês</div><div class="big" id="o-cvt">—</div><div class="delta" id="o-cvt-d"></div></div>
       <div class="card wide"><div class="label">Maiores orçamentos em aberto <small style="color:var(--muted)" id="o-top-sub"></small></div><div class="bars" id="o-top" style="margin-top:8px"></div></div>
@@ -517,7 +517,7 @@ function render(d) {
   const abMax = Math.max(1, ...todosAb.map(r => r.valor));
   $("#o-top").innerHTML = todosAb.length ? todosAb.map(r => `<div class="row orc" data-num="${esc(r.num)}" role="button"><span class="name">${r.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(r.cliente_cod)} · </span>` : ""}${esc(r.cliente)}</span><span class="val">${brl(r.valor)}</span>
     <div class="track"><div class="fill" style="width:${(r.valor / abMax * 100).toFixed(1)}%"></div></div>
-    <div class="meta">${esc(primeiroNome(r.rca))} · ${diasAberto(r)} dias em aberto${statusDe(r) === "V" ? ` · <span class="luc-bad">vencido</span>` : ""}</div></div>`).join("") : `<div class="empty">Nenhum orçamento em aberto ${nomeP}.</div>`;
+    <div class="meta">${esc(primeiroNome(r.rca))} · ${diasAberto(r) === 0 ? "aberto hoje" : diasAberto(r) === 1 ? "1 dia em aberto" : diasAberto(r) + " dias em aberto"}${statusDe(r) === "V" ? ` · <span class="luc-bad">vencido</span>` : ""}</div></div>`).join("") : `<div class="empty">Nenhum orçamento em aberto ${nomeP}.</div>`;
   funnel($("#c-funil"), { emitidos_mes: L.length, abertos_qtd: ab.length, convertidos_mes: fat.length });
   renderRankingConv(L, (o.pedidos_diretos || []).filter(noPeriodo));
   renderLista();
@@ -674,11 +674,11 @@ const POS = { L: "Aberto", F: "Faturado", C: "Cancelado", V: "Vencido" };
 const posLabel = p => POS[p] || p || "—";
 const posClass = p => p === "F" ? "ok" : p === "C" ? "bad" : p === "V" ? "warn" : "open";
 const aberto = r => { const s = statusDe(r); return s === "L" || s === "V"; };
-const diasAberto = r => Math.max(0, Math.round((refData() - new Date(r.data + "T00:00:00")) / 864e5));
+const diasAberto = r => { const t = refData(); const h = new Date(t.getFullYear(), t.getMonth(), t.getDate()); return Math.max(0, Math.round((h - new Date(r.data + "T00:00:00")) / 864e5)); };   // dias de calendário
 let BUSCA = "", OPERIODO = load("vendas_operiodo") || "mes";
 function refData() { const d = DATA && new Date(DATA.atualizado_em); return isNaN(d) || !d ? hoje() : d; }
 function noPeriodo(r, per) {
-  per = per || OPERIODO;
+  if (typeof per !== "string") per = OPERIODO;   // .filter() passa o índice como 2º argumento
   const d = new Date(r.data + "T00:00:00"); if (isNaN(d)) return true;
   const ref = refData(); const dia0 = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
   if (per === "dia") return d.getTime() === dia0.getTime();
@@ -706,7 +706,7 @@ function abrirOrc(num) {
   $("#det-title").textContent = r.cliente ?? "";
   const tel = (r.telefone || "").replace(/\D/g, "");
   const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
-  $("#det-sub").innerHTML = `Orçamento #${esc(r.num)} · ${fmtData(r.data)}${r.hora ? ` às <b style="color:var(--ink);font-weight:600">${esc(r.hora)}</b>` : ""} &nbsp; <span class="pill ${posClass(statusDe(r))}">${esc(posLabel(statusDe(r)))}</span>${aberto(r) ? ` · ${diasAberto(r)} dias em aberto · validade ${fmtData(r.validade)}` : ""}`;
+  $("#det-sub").innerHTML = `Orçamento #${esc(r.num)} · ${fmtData(r.data)}${r.hora ? ` às <b style="color:var(--ink);font-weight:600">${esc(r.hora)}</b>` : ""} &nbsp; <span class="pill ${posClass(statusDe(r))}">${esc(posLabel(statusDe(r)))}</span>${aberto(r) ? ` · ${diasAberto(r) === 0 ? "aberto hoje" : diasAberto(r) === 1 ? "1 dia em aberto" : diasAberto(r) + " dias em aberto"} · validade ${fmtData(r.validade)}` : ""}`;
   $("#det-kv").innerHTML =
     campo("Cliente", `${esc(r.cliente_cod ?? "")} · ${esc(r.cliente ?? "")}`) +
     campo("Telefone", r.telefone ? `<a href="tel:${tel}">${esc(r.telefone)}</a>` : null) +
