@@ -156,6 +156,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
 </header>
 <div class="banner" id="banner" hidden></div>
 <main>
+<div id="alerta" hidden style="margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#fff4d6;color:#7a4b00;font-size:13px;line-height:1.35"></div>
   <section id="tab-fat">
     <div class="grid">
       <div class="card wide">
@@ -170,6 +171,11 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
         <div class="mtxt" id="k-meta-hoje"></div></div>
       <div class="card" id="card-hoje" role="button" style="cursor:pointer"><div class="label">Hoje <span style="color:var(--s1)">›</span></div><div class="big" id="k-hoje">—</div><div class="mtxt" id="k-hoje-sub" style="margin-top:2px"></div></div>
       <div class="card"><div class="label">Projeção do mês</div><div class="big" id="k-proj">—</div><div class="delta" id="d-proj"></div></div>
+      <div class="card wide" id="card-margem" hidden>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="label" style="margin:0">Margem bruta</div>
+          <div class="seg" id="m-seg"><button data-p="dia">Hoje</button><button data-p="semana">Semana</button><button data-p="quinzena">Quinzena</button><button data-p="mes">Mês</button></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:6px"><div class="big" id="k-marg">—</div><div class="mtxt" id="k-marg-vals" style="text-align:right;margin:0"></div></div>
+        <div class="mtxt" id="k-marg-d"></div></div>
       <div class="card"><div class="label">Pedidos no mês</div><div class="big" id="k-ped">—</div></div>
       <div class="card"><div class="label">Ticket médio</div><div class="big" id="k-tkt">—</div></div>
     </div>
@@ -202,6 +208,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
       <div class="card"><div class="label" id="o-conv-label">Conversão no mês</div><div class="big" id="o-conv">—</div><div class="delta" id="o-conv-d"></div></div>
       <div class="card" id="o-fat-card" role="button" style="cursor:pointer"><div class="label" id="o-fat-label">Faturado no mês <span class="chev">›</span></div><div class="big" id="o-fat">—</div><div class="delta" id="o-fat-d"></div></div>
       <div class="card"><div class="label" id="o-cvt-label">Convertidos no mês</div><div class="big" id="o-cvt">—</div><div class="delta" id="o-cvt-d"></div></div>
+      <div class="card wide" id="o-parados" hidden style="border-left:4px solid var(--s1)"><div class="label">Orçamentos parados <small style="color:var(--muted)">· abertos há mais de 5 dias</small></div><div class="bars" id="o-parados-l" style="margin-top:8px"></div><div class="mtxt" id="o-parados-s"></div></div>
       <div class="card wide"><div class="label">Maiores orçamentos em aberto <small style="color:var(--muted)" id="o-top-sub"></small></div><div class="bars" id="o-top" style="margin-top:8px"></div></div>
       <div class="card wide"><div class="label" id="o-funil-label">Funil do mês</div><div class="chart" id="c-funil"></div></div>
     </div>
@@ -449,6 +456,8 @@ function render(d) {
   const nh = notasDoDia(hojeStr(isNaN(dt) ? hoje() : dt)); $("#k-hoje-sub").textContent = nh.length ? `${nh.length} nota${nh.length > 1 ? "s" : ""} · toque para ver` : (f.notas_mes ? "nenhuma nota ainda" : "");
   renderMeta(f);
   renderAndamento(d);
+  renderMargem();
+  renderAlerta(d);
   $("#k-ped").textContent = f.pedidos_mes ?? "—";
   $("#k-tkt").textContent = brl(f.ticket_medio);
   const now = isNaN(dt) ? hoje() : dt;
@@ -490,6 +499,17 @@ function render(d) {
   $("#o-cvt-label").textContent = `Convertidos ${nomeP}`;
   $("#o-cvt").textContent = fat.length;
   $("#o-cvt-d").className = "delta"; $("#o-cvt-d").textContent = `${brl(vFat)} em orçamentos que viraram pedido`;
+  const ref = refData(); const diasDe = r => Math.round((ref - new Date(r.data + "T00:00:00")) / 864e5);
+  const parados = (o.lista || []).filter(r => aberto(r) && diasDe(r) > 5).sort((a, b) => b.valor - a.valor);
+  const pc = $("#o-parados"); pc.hidden = !parados.length;
+  if (parados.length) {
+    const top = parados.slice(0, 8), pmax = Math.max(1, ...top.map(r => r.valor));
+    $("#o-parados-l").innerHTML = top.map(r => { const tel = (r.telefone || "").replace(/\D/g, ""); const wa = tel.length >= 10 ? `https://wa.me/55${tel}` : "";
+      return `<div class="row" data-num="${esc(r.num)}" role="button"><span class="name">${r.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(r.cliente_cod)} · </span>` : ""}${esc(r.cliente)}</span><span class="val">${brl(r.valor)}</span>
+        <div class="track"><div class="fill" style="width:${(r.valor / pmax * 100).toFixed(1)}%"></div></div>
+        <div class="meta">${esc(primeiroNome(r.rca))} · <b class="luc-bad">${diasDe(r)} dias parado</b>${r.telefone ? ` · ${esc(r.telefone)}` : ""}${wa ? ` · <a href="${wa}" target="_blank" rel="noopener" style="color:var(--s1);font-weight:600;text-decoration:none" onclick="event.stopPropagation()">WhatsApp ›</a>` : ""}</div></div>`; }).join("");
+    $("#o-parados-s").textContent = `${parados.length} orçamento${parados.length > 1 ? "s" : ""} · ${brl(parados.reduce((s, r) => s + r.valor, 0))} parados${parados.length > 8 ? ` · mostrando os 8 maiores` : ""}`;
+  }
   const todosAb = ab.slice().sort((a, b) => b.valor - a.valor).slice(0, 5);
   $("#o-top-sub").textContent = "· emitidos " + nomeP;
   const abMax = Math.max(1, ...todosAb.map(r => r.valor));
@@ -591,6 +611,31 @@ function abrirPed(num) {
   $("#det-itens").innerHTML = it.length ? it.map(i => `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}</div></td><td class="v">${brl2(i.total)}</td></tr>`).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(it.reduce((s, i) => s + i.total, 0))}</td></tr>` : `<tr><td class="empty">Itens não disponíveis.</td></tr>`;
   $("#det").showModal(); $("#det .sheet-b").scrollTop = 0;
 }
+let MPERIODO = load("vendas_mperiodo") || "mes";
+const NOMEP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês" };
+function renderMargem() {
+  const card = $("#card-margem"); const ns = (DATA && DATA.faturamento.notas_mes) || [];
+  if (!ns.some(n => n.custo != null)) { card.hidden = true; return; }
+  card.hidden = false;
+  document.querySelectorAll("#m-seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.p === MPERIODO));
+  const calc = L => { const v = L.reduce((s, n) => s + n.valor, 0), c = L.reduce((s, n) => s + (n.custo || 0), 0); return { v, c, l: v - c, m: v ? (v - c) / v * 100 : null }; };
+  const cur = calc(ns.filter(n => noPeriodo(n, MPERIODO)));
+  const ref = refData(); const ini = new Date(ref.getFullYear(), ref.getMonth() - 1, 1), fim = new Date(ref.getFullYear(), ref.getMonth(), 1);
+  const ant = calc(ns.filter(n => { const d = new Date(n.data + "T00:00:00"); return d >= ini && d < fim; }));
+  const p1 = v => v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+  $("#k-marg").textContent = cur.m == null ? "—" : p1(cur.m);
+  $("#k-marg").style.color = cur.m != null && ant.m != null && cur.m < ant.m - 1 ? "var(--bad)" : "var(--ink)";
+  $("#k-marg-vals").innerHTML = cur.m == null ? `sem notas ${NOMEP[MPERIODO]}` : `lucro bruto <b>${brl(cur.l)}</b><br>sobre ${brl(cur.v)} faturados`;
+  $("#k-marg-d").innerHTML = ant.m == null ? "" : `Mês anterior fechou em <b>${p1(ant.m)}</b>${cur.m != null ? ` → <span class="${cur.m >= ant.m ? "meta-ok" : "meta-late"}">${cur.m >= ant.m ? "▲" : "▼"} ${fmtNum(Math.abs(cur.m - ant.m).toFixed(1))} pts</span>` : ""} · custo real das notas`;
+}
+function renderAlerta(d) {
+  const el = $("#alerta"); const agora = new Date(); const dt = new Date(d.atualizado_em); let msg = "";
+  const min = isNaN(dt) ? null : Math.round((agora - dt) / 60000);
+  const comercial = agora.getDay() >= 1 && agora.getDay() <= 5 && agora.getHours() >= 8 && agora.getHours() < 19;
+  if (d.ultimo_erro && agora - new Date(d.ultimo_erro.quando) < 3 * 3600e3) msg = `<b>⚠ Falha na leitura do Winthor</b> às ${new Date(d.ultimo_erro.quando).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}: <span style="font-family:monospace;font-size:12px">${esc(d.ultimo_erro.msg)}</span>. Mostrando a última leitura boa.`;
+  else if (min != null && min > 20 && comercial) msg = `<b>⚠ Dados desatualizados</b> — última leitura do Winthor há ${min} min. Em horário comercial isso indica que o extrator parou.`;
+  el.hidden = !msg; el.innerHTML = msg;
+}
 function renderMeta(f) {
   const card = $("#card-meta");
   if (!(f.meta_mes > 0)) { card.hidden = true; $("#lg-meta").hidden = true; return; }
@@ -617,12 +662,13 @@ const aberto = r => { const s = statusDe(r); return s === "L" || s === "V"; };
 const diasAberto = r => Math.max(0, Math.round((refData() - new Date(r.data + "T00:00:00")) / 864e5));
 let BUSCA = "", OPERIODO = load("vendas_operiodo") || "mes";
 function refData() { const d = DATA && new Date(DATA.atualizado_em); return isNaN(d) || !d ? hoje() : d; }
-function noPeriodo(r) {
+function noPeriodo(r, per) {
+  per = per || OPERIODO;
   const d = new Date(r.data + "T00:00:00"); if (isNaN(d)) return true;
   const ref = refData(); const dia0 = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
-  if (OPERIODO === "dia") return d.getTime() === dia0.getTime();
-  if (OPERIODO === "semana") { const seg = new Date(dia0); seg.setDate(dia0.getDate() - ((dia0.getDay() + 6) % 7)); return d >= seg && d <= dia0; }
-  if (OPERIODO === "quinzena") { const ini = new Date(dia0); ini.setDate(dia0.getDate() - 14); return d >= ini && d <= dia0; }
+  if (per === "dia") return d.getTime() === dia0.getTime();
+  if (per === "semana") { const seg = new Date(dia0); seg.setDate(dia0.getDate() - ((dia0.getDay() + 6) % 7)); return d >= seg && d <= dia0; }
+  if (per === "quinzena") { const ini = new Date(dia0); ini.setDate(dia0.getDate() - 14); return d >= ini && d <= dia0; }
   return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth();
 }
 function renderLista() {
@@ -797,6 +843,7 @@ $("#seg").addEventListener("click", e => { const b = e.target.closest("button");
 syncSeg();
 // Período dos orçamentos
 function syncOSeg() { document.querySelectorAll("#o-seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.p === OPERIODO)); }
+$("#m-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; MPERIODO = b.dataset.p; store("vendas_mperiodo", MPERIODO); renderMargem(); });
 $("#o-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; OPERIODO = b.dataset.p; store("vendas_operiodo", OPERIODO); syncOSeg(); if (DATA) render(DATA); });
 syncOSeg();
 // Busca
@@ -812,6 +859,7 @@ $("#card-hoje").addEventListener("click", () => abrirNotas(hojeStr(refData())));
 $("#det-kv").addEventListener("click", e => { const el = e.target.closest(".kv.fin"); if (el) abrirFin(el.dataset.cod, el.dataset.num); });
 $("#det-itens").addEventListener("click", e => { const tr = e.target.closest("tr.orc[data-nf]"); if (tr) abrirNota(tr.dataset.nf, tr.dataset.data, tr.dataset.per); });
 $("#o-fat-card").addEventListener("click", abrirNotasPeriodo);
+$("#o-parados-l").addEventListener("click", e => { const r = e.target.closest(".row[data-num]"); if (r) abrirOrc(+r.dataset.num); });
 $("#det").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 // Configuração
 const dlg = $("#dlg");
