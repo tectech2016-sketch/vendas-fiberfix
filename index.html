@@ -187,6 +187,11 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
       <table id="pa-lista"></table>
     </div>
     </div>
+    <div class="card wide" id="card-planos" hidden style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="label" style="margin:0">Por plano de pagamento</div>
+        <div class="seg" id="p-seg"><button data-p="dia">Hoje</button><button data-p="semana">Semana</button><button data-p="quinzena">Quinzena</button><button data-p="mes">Mês</button></div></div>
+      <div class="mtxt" id="p-sub" style="margin:6px 0 10px"></div>
+      <div class="bars" id="p-lista"></div></div>
     <h2>Faturamento por dia <small id="c-dia-sub">mês atual</small></h2>
     <div class="card"><div class="chart" id="c-dia"></div></div>
     <h2>Faturamento por mês <small id="c-12m-sub">últimos 12 meses</small></h2>
@@ -457,6 +462,7 @@ function render(d) {
   renderMeta(f);
   renderAndamento(d);
   renderMargem();
+  renderPlanos();
   renderAlerta(d);
   { const nl = notasDoDia(hojeStr(isNaN(dt) ? hoje() : dt)); const v = nl.reduce((a, n) => a + n.valor, 0), c = nl.reduce((a, n) => a + (n.custo || 0), 0);
     $("#k-lb").textContent = nl.length ? brl(v - c) : "—";
@@ -630,6 +636,25 @@ function renderMargem() {
   $("#k-marg-vals").innerHTML = cur.m == null ? `sem notas ${NOMEP[MPERIODO]}` : `lucro bruto <b>${brl(cur.l)}</b><br>sobre ${brl(cur.v)} faturados`;
   $("#k-marg-d").innerHTML = ant.m == null ? "" : `Mês anterior fechou em <b>${p1(ant.m)}</b>${cur.m != null ? ` → <span class="${cur.m >= ant.m ? "meta-ok" : "meta-late"}">${cur.m >= ant.m ? "▲" : "▼"} ${fmtNum(Math.abs(cur.m - ant.m).toFixed(1))} pts</span>` : ""} · custo real das notas`;
 }
+let PPERIODO = load("vendas_pperiodo") || "mes";
+function planoDe(n) { return { chave: n.cond_cod != null ? "c" + n.cond_cod : "n" + (n.cond_pagto || ""), cod: n.cond_cod, nome: n.cond_pagto || "Sem plano" }; }
+function renderPlanos() {
+  const card = $("#card-planos"); const ns = (DATA && DATA.faturamento.notas_mes) || [];
+  if (!ns.length) { card.hidden = true; return; }
+  card.hidden = false;
+  document.querySelectorAll("#p-seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.p === PPERIODO));
+  const L = ns.filter(n => noPeriodo(n, PPERIODO)); const tot = L.reduce((s, n) => s + n.valor, 0);
+  const g = {}; L.forEach(n => { const k = planoDe(n); const x = g[k.chave] || (g[k.chave] = { ...k, v: 0, q: 0 }); x.v += n.valor; x.q++; });
+  const rows = Object.values(g).sort((a, b) => b.v - a.v); const mx = rows.length ? rows[0].v : 0;
+  $("#p-sub").innerHTML = rows.length ? `${rows.length} plano${rows.length > 1 ? "s" : ""} · ${L.length} nota${L.length > 1 ? "s" : ""} · <b>${brl2(tot)}</b> ${NOMEP[PPERIODO]}` : `sem notas ${NOMEP[PPERIODO]}`;
+  $("#p-lista").innerHTML = rows.map(x => `<div class="row orc" data-k="${esc(x.chave)}" role="button"><span class="name">${x.cod != null ? `<span style="color:var(--muted);font-weight:400">${esc(x.cod)} · </span>` : ""}${esc(x.nome)}</span><span class="val"><b>${brl(x.v)}</b> · ${fmtNum((x.v / tot * 100).toFixed(1))}%</span>
+    <div class="track"><div class="fill" style="width:${mx ? x.v / mx * 100 : 0}%"></div></div><div class="meta">${x.q} nota${x.q > 1 ? "s" : ""} · toque para ver</div></div>`).join("");
+}
+function abrirPlano(chave) {
+  const L = ((DATA && DATA.faturamento.notas_mes) || []).filter(n => noPeriodo(n, PPERIODO) && planoDe(n).chave === chave); if (!L.length) return;
+  const k = planoDe(L[0]);
+  abrirNotas({ lista: L, titulo: (k.cod != null ? k.cod + " · " : "") + k.nome + " — " + NOMEP[PPERIODO] });
+}
 function renderAlerta(d) {
   const el = $("#alerta"); const agora = new Date(); const dt = new Date(d.atualizado_em); let msg = "";
   const min = isNaN(dt) ? null : Math.round((agora - dt) / 60000);
@@ -718,12 +743,14 @@ function abrirOrc(num) {
 }
 const hojeStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 function notasDoDia(data) { return ((DATA && DATA.faturamento.notas_mes) || []).filter(n => n.data === data); }
+let NOTAS_CUSTOM = null;
 function abrirNotasPeriodo() {
   const nomeP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês" }[OPERIODO];
   abrirNotas({ lista: ((DATA && DATA.faturamento.notas_mes) || []).filter(noPeriodo), titulo: "Faturado " + nomeP });
 }
 function abrirNotas(data) {
   const custom = typeof data === "object" && data;
+  if (custom) NOTAS_CUSTOM = custom;
   const ns = (custom ? custom.lista : notasDoDia(data)).slice().sort((a, b) => b.valor - a.valor);
   const tot = ns.reduce((s, n) => s + n.valor, 0);
   const ref = refData(); const hoje = !custom && data === hojeStr(ref);
@@ -745,7 +772,7 @@ function abrirNota(nf, data, per) {
   const soma = itens.reduce((s, i) => s + (i.total ?? i.qtd * i.unitario), 0);
   $("#det-title").textContent = (n.cliente_cod ? n.cliente_cod + " · " : "") + (n.cliente || "");
   $("#det-sub").innerHTML = `<a href="#" id="det-back" style="color:var(--s1);text-decoration:none;font-weight:600">‹ Voltar</a> &nbsp; NF ${esc(n.nf)} · ${fmtData(n.data)}`;
-  $("#det-sub").querySelector("#det-back").addEventListener("click", e => { e.preventDefault(); per ? abrirNotasPeriodo() : abrirNotas(data); });
+  $("#det-sub").querySelector("#det-back").addEventListener("click", e => { e.preventDefault(); per ? abrirNotas(NOTAS_CUSTOM) : abrirNotas(data); });
   const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
   $("#det-extra").innerHTML = "";
   $("#det-kv").innerHTML = campo("Vendedora", esc(n.rca)) + campo("Pedido", n.pedido ? esc(n.pedido) : "—") + campo("Plano de pagamento", n.cond_pagto ? esc(n.cond_pagto) : null) + campo("Orçamento", n.orcamento ? esc(n.orcamento) : "direto") + campo("Valor da nota", brl2(n.valor));
@@ -845,6 +872,8 @@ $("#seg").addEventListener("click", e => { const b = e.target.closest("button");
 syncSeg();
 // Período dos orçamentos
 function syncOSeg() { document.querySelectorAll("#o-seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.p === OPERIODO)); }
+$("#p-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; PPERIODO = b.dataset.p; store("vendas_pperiodo", PPERIODO); renderPlanos(); });
+$("#p-lista").addEventListener("click", e => { const r = e.target.closest(".row[data-k]"); if (r) abrirPlano(r.dataset.k); });
 $("#m-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; MPERIODO = b.dataset.p; store("vendas_mperiodo", MPERIODO); renderMargem(); });
 $("#o-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; OPERIODO = b.dataset.p; store("vendas_operiodo", OPERIODO); syncOSeg(); if (DATA) render(DATA); });
 syncOSeg();
