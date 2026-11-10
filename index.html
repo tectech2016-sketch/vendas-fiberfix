@@ -678,7 +678,7 @@ function renderLista() {
     (!q || [r.cliente, r.num, r.cliente_cod, r.rca, r.pedido, r.nf].some(v => String(v ?? "").toLowerCase().includes(q))));
   $("#o-lista").innerHTML = rows.length ? rows.map(r => `<tr class="orc" data-num="${esc(r.num)}" role="button" tabindex="0">
     <td><div class="cli">${r.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(r.cliente_cod)} · </span>` : ""}${esc(r.cliente)}</div>
-        <div class="mt">#${esc(r.num)} · ${fmtData(r.data)} · ${esc(primeiroNome(r.rca))}</div>
+        <div class="mt">#${esc(r.num)} · ${fmtData(r.data)}${r.hora ? ` às ${esc(r.hora)}` : ""} · ${esc(primeiroNome(r.rca))}</div>
         <div class="mt"><span class="prazo">⏱ ${esc(r.cond_pagto || "—")}</span>${r.cobranca ? ` · ${esc(r.cobranca)}` : ""}${r.perc_lucro != null ? ` · <span class="${r.perc_lucro < 10 ? "luc-bad" : ""}">${fmtNum(r.perc_lucro)}% luc.</span>` : ""}</div></td>
     <td class="v"><div>${brl(r.valor)}</div><div class="mt"><span class="pill ${posClass(statusDe(r))}">${esc(posLabel(statusDe(r)))}</span></div>
         <div class="mt chev">${r.nf ? "NF " + esc(r.nf) : (r.itens || []).length + " itens"} ›</div></td></tr>`).join("")
@@ -691,7 +691,7 @@ function abrirOrc(num) {
   $("#det-title").textContent = r.cliente ?? "";
   const tel = (r.telefone || "").replace(/\D/g, "");
   const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
-  $("#det-sub").innerHTML = `Orçamento #${esc(r.num)} · ${fmtData(r.data)} &nbsp; <span class="pill ${posClass(statusDe(r))}">${esc(posLabel(statusDe(r)))}</span>${aberto(r) ? ` · ${diasAberto(r)} dias em aberto · validade ${fmtData(r.validade)}` : ""}`;
+  $("#det-sub").innerHTML = `Orçamento #${esc(r.num)} · ${fmtData(r.data)}${r.hora ? ` às ${esc(r.hora)}` : ""} &nbsp; <span class="pill ${posClass(statusDe(r))}">${esc(posLabel(statusDe(r)))}</span>${aberto(r) ? ` · ${diasAberto(r)} dias em aberto · validade ${fmtData(r.validade)}` : ""}`;
   $("#det-kv").innerHTML =
     campo("Cliente", `${esc(r.cliente_cod ?? "")} · ${esc(r.cliente ?? "")}`) +
     campo("Telefone", r.telefone ? `<a href="tel:${tel}">${esc(r.telefone)}</a>` : null) +
