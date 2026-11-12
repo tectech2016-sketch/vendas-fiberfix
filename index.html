@@ -153,7 +153,7 @@ dialog input{width:100%;font:inherit;font-size:13px;padding:10px;border-radius:1
 dialog .acts{display:flex;gap:8px;justify-content:flex-end}
 .empty{color:var(--muted);font-size:13px;padding:12px 0}
 .seg{display:inline-flex;background:var(--grid);border-radius:999px;padding:2px}
-.seg.wide button{flex:1}
+.seg.wide button{flex:1;padding-left:4px;padding-right:4px}
 .seg button{border:0;background:none;color:var(--ink2);font:inherit;font-size:12px;padding:4px 10px;border-radius:999px}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
 tr.orc{cursor:pointer} tr.orc:active td{background:color-mix(in srgb,var(--ink) 5%,transparent)}
@@ -225,7 +225,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
   <section id="tab-orc" hidden>
     <div class="seg wide" id="o-seg" style="display:flex;margin:4px 0 12px">
       <button aria-pressed="false" data-p="dia">Hoje</button><button aria-pressed="false" data-p="semana">Semana</button>
-      <button aria-pressed="false" data-p="quinzena">Quinzena</button><button aria-pressed="true" data-p="mes">Mês</button>
+      <button aria-pressed="false" data-p="quinzena">Quinzena</button><button aria-pressed="true" data-p="mes">Mês</button><button aria-pressed="false" data-p="tri">Trimestre</button>
     </div>
     <div class="grid">
       <div class="card"><div class="label">Orçamentos abertos</div><div class="big" id="o-abertos">—</div><div class="delta" id="o-abertos-v"></div></div>
@@ -517,7 +517,7 @@ function render(d) {
   // Orçamentos (período selecionado)
   const L = (o.lista || []).filter(noPeriodo);
   const ab = L.filter(aberto), fat = L.filter(r => statusDe(r) === "F");
-  const nomeP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês" }[OPERIODO];
+  const nomeP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês", tri: "no trimestre" }[OPERIODO];
   $("#o-abertos").textContent = ab.length;
   $("#o-abertos-v").className = "delta"; $("#o-abertos-v").textContent = brl(ab.reduce((s, r) => s + r.valor, 0)) + " em aberto";
   $("#o-conv-label").textContent = "Conversão " + nomeP; $("#o-funil-label").textContent = "Funil " + nomeP;
@@ -647,7 +647,7 @@ function abrirPed(num) {
   $("#det").showModal(); $("#det .sheet-b").scrollTop = 0;
 }
 let MPERIODO = load("vendas_mperiodo") || "mes";
-const NOMEP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês" };
+const NOMEP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês", tri: "no trimestre" };
 function renderMargem() {
   const card = $("#card-margem"); const ns = (DATA && DATA.faturamento.notas_mes) || [];
   if (!ns.some(n => n.custo != null)) { card.hidden = true; return; }
@@ -717,6 +717,7 @@ function noPeriodo(r, per) {
   if (per === "dia") return d.getTime() === dia0.getTime();
   if (per === "semana") { const seg = new Date(dia0); seg.setDate(dia0.getDate() - ((dia0.getDay() + 6) % 7)); return d >= seg && d <= dia0; }
   if (per === "quinzena") { const ini = new Date(dia0); ini.setDate(dia0.getDate() - 14); return d >= ini && d <= dia0; }
+  if (per === "tri") return d >= new Date(ref.getFullYear(), ref.getMonth() - 2, 1) && d <= dia0;   // mês atual + 2 anteriores
   return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth();
 }
 function renderLista() {
@@ -766,7 +767,7 @@ const hojeStr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, 
 var ONTEM = null;
 function notasDoDia(data) { return ((DATA && DATA.faturamento.notas_mes) || []).filter(n => n.data === data); }
 function abrirNotasPeriodo() {
-  const nomeP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês" }[OPERIODO];
+  const nomeP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês", tri: "no trimestre" }[OPERIODO];
   abrirNotas({ lista: ((DATA && DATA.faturamento.notas_mes) || []).filter(noPeriodo), titulo: "Faturado " + nomeP });
 }
 function abrirNotas(data) {
@@ -870,7 +871,7 @@ function abrirVend(rca) {
   const cel = (a, eq) => `<td class="hv"><b style="color:${a == null || eq == null || Math.round(a) === Math.round(eq) ? "var(--ink)" : a > eq ? "var(--good)" : "var(--bad)"}">${p0(a)}</b><small>equipe ${p0(eq)}</small></td>`;
   const lin = (rot, sub, L, LE) => { const a = conta(L), e = conta(LE);
     return `<tr><td><div class="cli" style="font-weight:600">${rot}</div><div class="mt">${a.n ? `${a.f} de ${a.n} · ${brl(a.fv)}` : "sem orçamentos"}${sub ? " · " + sub : ""}</div></td>${cel(a.q, e.q)}${cel(a.v, e.v)}</tr>`; };
-  const pers = [["dia", "Hoje"], ["semana", "Semana"], ["quinzena", "Quinzena"], ["mes", "Mês"]];
+  const pers = [["dia", "Hoje"], ["semana", "Semana"], ["quinzena", "Quinzena"], ["mes", "Mês"], ["tri", "Trimestre"]];
   const ref = refData(), datas = todos.map(r => r.data).filter(Boolean).sort(), ini = datas[0] || hojeStr(ref);
   const meses = []; for (let k = 0; k < 12; k++) { const d = new Date(ref.getFullYear(), ref.getMonth() - k, 1), ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); if (ym < ini.slice(0, 7)) break; meses.push({ ym, rot: MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2), parcial: ym + "-01" < ini }); }
   const HC = (DATA.hist_mensal && DATA.hist_mensal.conv) || [];
