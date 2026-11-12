@@ -782,7 +782,7 @@ function abrirNotas(data) {
   $("#det-kv").innerHTML = Object.entries(porV).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="kv"><span>${esc(primeiroNome(k))}</span><b>${brl(v)}</b></div>`).join("");
   $("#det-extra").innerHTML = "";
   $("#det-itens").previousElementSibling.textContent = "Notas";
-  $("#det-itens").innerHTML = ns.length ? ns.map(n => `<tr class="orc" data-nf="${esc(n.nf)}" data-data="${esc(n.data)}" data-per="${custom ? 1 : ""}" role="button"><td><div class="cli">${n.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(n.cliente_cod)} · </span>` : ""}${esc(n.cliente)}</div><div class="mt">NF ${esc(n.nf)}${n.pedido ? ` · pedido ${esc(n.pedido)}` : ""} · ${esc(primeiroNome(n.rca))}${n.orcamento ? ` · orç. ${esc(n.orcamento)}` : ""}</div>${n.cond_pagto ? `<div class="mt"><span class="prazo">⏱ ${esc(n.cond_pagto)}</span></div>` : ""}</td>
+  $("#det-itens").innerHTML = ns.length ? ns.map(n => `<tr class="orc" data-nf="${esc(n.nf)}" data-data="${esc(n.data)}" data-per="${custom ? 1 : ""}" role="button"><td><div class="cli">${n.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(n.cliente_cod)} · </span>` : ""}${esc(n.cliente)}</div><div class="mt">NF ${esc(n.nf)} · ${fmtData(n.data)}${n.hora ? ` às <b style="color:var(--ink);font-weight:600">${esc(n.hora)}</b>` : ""}${n.pedido ? ` · pedido ${esc(n.pedido)}` : ""} · ${esc(primeiroNome(n.rca))}${n.orcamento ? ` · orç. ${esc(n.orcamento)}` : ""}</div>${n.cond_pagto ? `<div class="mt"><span class="prazo">⏱ ${esc(n.cond_pagto)}</span></div>` : ""}</td>
     <td class="v">${brl2(n.valor)} <span class="chev">›</span></td></tr>`).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(tot)}</td></tr>`
     : `<tr><td class="empty">Nenhuma nota faturada neste dia.</td></tr>`;
   if (!$("#det").open) $("#det").showModal();
@@ -793,7 +793,7 @@ function abrirNota(nf, data, per) {
   const itens = n.itens || [];
   const soma = itens.reduce((s, i) => s + (i.total ?? i.qtd * i.unitario), 0);
   $("#det-title").textContent = (n.cliente_cod ? n.cliente_cod + " · " : "") + (n.cliente || "");
-  $("#det-sub").innerHTML = `<a href="#" id="det-back" style="color:var(--s1);text-decoration:none;font-weight:600">‹ Voltar</a> &nbsp; NF ${esc(n.nf)} · ${fmtData(n.data)}`;
+  $("#det-sub").innerHTML = `<a href="#" id="det-back" style="color:var(--s1);text-decoration:none;font-weight:600">‹ Voltar</a> &nbsp; NF ${esc(n.nf)} · ${fmtData(n.data)}${n.hora ? ` às <b style="color:var(--ink);font-weight:600">${esc(n.hora)}</b>` : ""}`;
   $("#det-sub").querySelector("#det-back").addEventListener("click", e => { e.preventDefault(); per ? abrirNotasPeriodo() : abrirNotas(data); });
   const campo = (k, v) => v == null || v === "" ? "" : `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
   $("#det-extra").innerHTML = "";
