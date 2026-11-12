@@ -555,12 +555,12 @@ function render(d) {
     const p = pct(v.valor, b); return ` · <span style="color:${p >= 0 ? "var(--good)" : "var(--bad)"}">${p >= 0 ? "▲" : "▼"} ${fmtPct(p)}</span> vs. ${periodoAnt()}`; };
   const linha = (v, i) => {
     const tk = brl(v.pedidos ? v.valor / v.pedidos : null);
-    if (!(v.meta > 0)) return `<div class="vrow"><div class="vtop"><span class="vnome">${esc(v.nome)}</span><b class="vval">${brl(v.valor)}</b></div>
+    if (!(v.meta > 0)) return `<div class="vrow" data-vnome="${esc(v.nome)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome">${esc(v.nome)} <span style="color:var(--s1);font-weight:400">›</span></span><b class="vval">${brl(v.valor)}</b></div>
       <div class="vtrack"><div style="width:${(v.valor / vmax * 100).toFixed(1)}%;background:var(--axis)"></div></div>
       <div class="vsub">${v.pedidos} pedido${v.pedidos === 1 ? "" : "s"} · ticket ${tk}${cmp(v)}</div></div>`;
     const at = v.valor / v.meta * 100, esp = v.meta_ate_hoje || 0, dif = v.valor - esp, ok = dif >= 0;
     const pe = Math.min(100, esp / v.meta * 100);
-    return `<div class="vrow"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(v.nome)}</span>${esp ? `<span class="mpill ${ok ? "ok" : "late"}">${ok ? "▲" : "▼"} ${brl(Math.abs(dif))}</span>` : ""}</div>
+    return `<div class="vrow" data-vnome="${esc(v.nome)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(v.nome)} <span style="color:var(--s1);font-weight:400">›</span></span>${esp ? `<span class="mpill ${ok ? "ok" : "late"}">${ok ? "▲" : "▼"} ${brl(Math.abs(dif))}</span>` : ""}</div>
       <div class="vtop" style="margin-top:4px"><b class="vval">${brl(v.valor)}</b><span class="vsub" style="margin:0"><b style="color:var(--ink)">${p1(at)}</b> de ${brl(v.meta)}</span></div>
       <div class="vtrack"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--s1)"}"></div>${esp ? `<i style="left:${pe.toFixed(1)}%"></i>` : ""}</div>
       <div class="vsub">${v.pedidos} pedidos · ticket ${tk}${cmp(v)}</div></div>`;
@@ -826,6 +826,33 @@ function abrirFin(cod, numOrca) {
 }
 let CORDEM = load("vendas_cordem") || "qtd", CONV_ARGS = null, CONV_LISTAS = {}, ORCS_ABERTA = null;
 let DET_BACK = null;
+function abrirVendFat(nome) {
+  DET_BACK = null;
+  const k = String(nome).toLowerCase(), ns = ((DATA.faturamento.notas_mes) || []).filter(n => String(n.rca).toLowerCase() === k);
+  const todas = (DATA.faturamento.notas_mes) || [], ini = todas.map(n => n.data).sort()[0] || "", ref = refData(), dia = ref.getDate();
+  const res = L => { const v = L.reduce((s, n) => s + n.valor, 0), c = L.reduce((s, n) => s + (n.custo || 0), 0);
+    return { v, n: L.length, cli: new Set(L.map(n => n.cliente_cod ?? n.cliente)).size, tk: L.length ? v / L.length : null, mg: v ? (v - c) / v * 100 : null }; };
+  const meses = []; for (let i = 0; i < 12; i++) { const d = new Date(ref.getFullYear(), ref.getMonth() - i, 1), ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); if (!ini || ym < ini.slice(0, 7)) break;
+    const L = ns.filter(n => n.data.slice(0, 7) === ym); meses.push({ ym, d, rot: MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2), atual: i === 0, r: res(L), mp: res(L.filter(n => +n.data.slice(8) <= dia)) }); }
+  const mx = Math.max(1, ...meses.map(m => m.r.v)), p1 = v => v == null ? "—" : fmtNum(v.toFixed(1)) + "%";
+  const dl = (a, b) => { if (!(b > 0)) return ""; const p = (a - b) / b * 100; return ` <span style="color:${p >= 0 ? "var(--good)" : "var(--bad)"};font-weight:600">${p >= 0 ? "▲" : "▼"} ${fmtPct(p)}</span>`; };
+  $("#det-title").textContent = nome;
+  $("#det-sub").textContent = "Comparativo mês a mês · faturamento, pedidos e clientes";
+  $("#det-kv").innerHTML = "";
+  $("#det-extra").innerHTML = meses.length ? meses.map((m, i) => { const ant = meses[i + 1];
+    return `<div class="vrow" style="${i ? "" : "border-top:0;padding-top:4px"}"><div class="vtop"><span class="vnome">${m.rot}${m.atual ? ` <small style="font-weight:400;color:var(--muted);font-size:12px">até dia ${dia}</small>` : ""}</span><b class="vval">${brl(m.r.v)}</b></div>
+      <div class="vtrack"><div style="width:${(m.r.v / mx * 100).toFixed(1)}%;background:var(--ink2)"></div></div>
+      <div class="mstats" style="margin-top:10px;border-top:0;padding-top:0"><div><span>Pedidos</span><b>${m.r.n}</b><small>ticket ${brl(m.r.tk)}</small></div>
+        <div><span>Clientes</span><b>${m.r.cli}</b><small>atendidos</small></div><div><span>Margem</span><b>${p1(m.r.mg)}</b><small>lucro ${brl(m.r.v * (m.r.mg || 0) / 100)}</small></div></div>
+      ${ant ? `<div class="vsub">${m.atual ? `Mesmo período de ${ant.rot.split("/")[0]} (1–${dia}): ${brl(ant.mp.v)}${dl(m.r.v, ant.mp.v)} · ${ant.mp.n} pedidos${dl(m.r.n, ant.mp.n)} · ${ant.mp.cli} clientes${dl(m.r.cli, ant.mp.cli)}`
+        : `vs. ${ant.rot.split("/")[0]}: faturamento${dl(m.r.v, ant.r.v) || " —"} · pedidos${dl(m.r.n, ant.r.n) || " —"} · clientes${dl(m.r.cli, ant.r.cli) || " —"}`}</div>` : ""}</div>`; }).join("") : `<div class="empty">Sem notas no período disponível.</div>`;
+  const mesAt = ns.filter(n => n.data.slice(0, 7) === (meses[0] || {}).ym), pc = {}; mesAt.forEach(n => { const c = pc[n.cliente_cod ?? n.cliente] || (pc[n.cliente_cod ?? n.cliente] = { cod: n.cliente_cod, nome: n.cliente, v: 0, n: 0 }); c.v += n.valor; c.n++; });
+  const top = Object.values(pc).sort((a, b) => b.v - a.v).slice(0, 8);
+  $("#det-itens").previousElementSibling.textContent = "Maiores clientes no mês";
+  $("#det-itens").innerHTML = top.length ? top.map(c => `<tr><td><div class="cli">${c.cod ? `<span style="color:var(--muted);font-weight:400">${esc(c.cod)} · </span>` : ""}${esc(c.nome)}</div><div class="mt">${c.n} pedido${c.n > 1 ? "s" : ""}</div></td><td class="v">${brl2(c.v)}</td></tr>`).join("") : `<tr><td class="empty">Nenhuma nota no mês.</td></tr>`;
+  if (!$("#det").open) $("#det").showModal();
+  $("#det .sheet-b").scrollTop = 0;
+}
 function abrirVend(rca) {
   DET_BACK = () => abrirVend(rca);
   const todos = (DATA.orcamentos.lista || []), meus = todos.filter(r => r.rca === rca);
@@ -973,6 +1000,8 @@ $("#pa-seg").addEventListener("click", e => { const b = e.target.closest("button
 $("#pa-lista").addEventListener("click", e => { const tr = e.target.closest("tr[data-ped]"); if (tr) abrirPed(tr.dataset.ped); });
 const filtraRca = e => { const d = e.target.closest("[data-rca]"); if (!d || !ORCS_ABERTA || !$("#det-kv .vsel")) return; e.preventDefault(); const k = d.dataset.rca; abrirOrcs({ ...ORCS_ABERTA, rca: k && ORCS_ABERTA.rca !== k ? k : null }); };
 $("#det-kv").addEventListener("click", filtraRca); $("#det-sub").addEventListener("click", filtraRca);
+const vendClick = e => { const d = e.target.closest("[data-vnome]"); if (d) abrirVendFat(d.dataset.vnome); };
+$("#v-rank").addEventListener("click", vendClick); $("#v-canais").addEventListener("click", vendClick);
 $("#o-rank").addEventListener("click", e => { const d = e.target.closest("[data-vend]"); if (d) abrirVend(d.dataset.vend); });
 $("#o-rank-geral").addEventListener("click", e => { const d = e.target.closest("[data-st]"); if (!d) return; const st = d.dataset.st;
   abrirOrcs({ lista: CONV_LISTAS[st] || [], titulo: ({ F: "Orçamentos convertidos", L: "Orçamentos em aberto", P: "Orçamentos perdidos" })[st] + " " + NOMEP[OPERIODO] }); });
