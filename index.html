@@ -101,7 +101,7 @@ h2 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
 .vtrack{position:relative;height:8px;background:var(--grid);border-radius:4px;margin-top:8px} .vtrack>div{height:100%;border-radius:4px}
 .vtrack>i{position:absolute;top:-3px;width:2px;height:14px;background:var(--ink);border-radius:1px}
 .kv.vsel{cursor:pointer;border-radius:10px;padding:6px 8px;margin:-6px -8px} .kv.vsel.on{background:var(--grid)} .kv.vsel.on span{color:var(--ink);font-weight:600}
-table.hist{width:100%} table.hist td{padding:8px 0;border-top:1px solid var(--grid);vertical-align:middle} table.hist tr:first-child td{border-top:0;padding:0 0 2px} table.hist td.hv{text-align:right;width:74px;white-space:nowrap} table.hist td.hv b{display:block;font-size:15px;font-variant-numeric:tabular-nums} table.hist small{font-size:11px;color:var(--muted)}
+table.hist{width:100%} table.hist td{padding:8px 0;border-top:1px solid var(--grid);vertical-align:middle} table.hist tr:first-child td{border-top:0;padding:0 0 2px} table.hist td.hv{text-align:right;width:86px;white-space:nowrap} table.hist td.hv b{display:block;font-size:15px;font-variant-numeric:tabular-nums} table.hist small{font-size:11px;color:var(--muted)}
 .cbar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2)} .cbar>span{width:34px;flex:none} .cbar>b{width:38px;text-align:right;color:var(--ink);flex:none;font-variant-numeric:tabular-nums}
 .vsub{font-size:12px;color:var(--ink2);margin-top:6px}
 .bars{display:flex;flex-direction:column;gap:10px}
@@ -832,7 +832,7 @@ function abrirVend(rca) {
   const conta = L => { const f = L.filter(r => statusDe(r) === "F"), ev = L.reduce((s, r) => s + r.valor, 0), fv = f.reduce((s, r) => s + r.valor, 0);
     return { n: L.length, f: f.length, fv, q: L.length ? f.length / L.length * 100 : null, v: ev ? fv / ev * 100 : null }; };
   const p0 = v => v == null ? "—" : fmtNum(Math.round(v)) + "%";
-  const cel = (a, eq) => `<td class="hv"><b>${p0(a)}</b><small>eq. ${p0(eq)}</small></td>`;
+  const cel = (a, eq) => `<td class="hv"><b style="color:${a == null || eq == null || Math.round(a) === Math.round(eq) ? "var(--ink)" : a > eq ? "var(--good)" : "var(--bad)"}">${p0(a)}</b><small>equipe ${p0(eq)}</small></td>`;
   const lin = (rot, sub, L, LE) => { const a = conta(L), e = conta(LE);
     return `<tr><td><div class="cli" style="font-weight:600">${rot}</div><div class="mt">${a.n ? `${a.f} de ${a.n} · ${brl(a.fv)}` : "sem orçamentos"}${sub ? " · " + sub : ""}</div></td>${cel(a.q, e.q)}${cel(a.v, e.v)}</tr>`; };
   const pers = [["dia", "Hoje"], ["semana", "Semana"], ["quinzena", "Quinzena"], ["mes", "Mês"]];
@@ -840,7 +840,7 @@ function abrirVend(rca) {
   const meses = []; for (let k = 0; k < 12; k++) { const d = new Date(ref.getFullYear(), ref.getMonth() - k, 1), ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); if (ym < ini.slice(0, 7)) break; meses.push({ ym, rot: MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2), parcial: ym + "-01" < ini }); }
   const cab = `<tr><td></td><td class="hv"><small>Qtd</small></td><td class="hv"><small>Valor</small></td></tr>`;
   $("#det-title").textContent = nomeProprio(rca);
-  $("#det-sub").innerHTML = "Histórico de conversão · <span style=\"color:var(--muted)\">eq. = média da equipe</span>";
+  $("#det-sub").innerHTML = "Histórico de conversão · <span style=\"color:var(--good);font-weight:600\">verde</span> acima da equipe, <span style=\"color:var(--bad);font-weight:600\">vermelho</span> abaixo";
   $("#det-kv").innerHTML = "";
   $("#det-extra").innerHTML = `<h4 class="label" style="margin:4px 0 4px">Por período</h4><table class="hist">${cab}${pers.map(([p, n]) => lin(n, "", meus.filter(r => noPeriodo(r, p)), todos.filter(r => noPeriodo(r, p)))).join("")}</table>
     <h4 class="label" style="margin:16px 0 4px">Por mês</h4><table class="hist">${cab}${meses.map(m => lin(m.rot, m.parcial ? `a partir de ${fmtData(ini)}` : "", meus.filter(r => r.data.slice(0, 7) === m.ym), todos.filter(r => r.data.slice(0, 7) === m.ym))).join("")}</table>`;
