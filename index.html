@@ -867,9 +867,9 @@ function renderRankingConv(L, diretos) {
   $("#o-rank-geral").innerHTML = geral; $("#o-rank-geral").hidden = !geral;
   const mq = cq(tot), mv = cvl(tot);
   const pv = {}; ((DATA && DATA.faturamento.por_vendedor) || []).forEach(v => pv[String(v.nome).toLowerCase()] = v);
-  const metaHip = (x, extra) => { const v = pv[String(x.rca).toLowerCase()]; if (OPERIODO !== "mes" || !v || !(v.meta > 0)) return "";
-    const hoje = v.valor / v.meta * 100, hip = (v.valor + extra) / v.meta * 100;
-    return `<div class="vsub" style="margin-top:2px">Nesse caso estaria em <b style="color:var(--ink)">${p0(hip)} da meta</b> (${brl(v.valor + extra)} de ${brl(v.meta)}) · hoje está em ${p0(hoje)}</div>`; };
+  const metaHip = (x, extra) => { const v = pv[String(x.rca).toLowerCase()]; if (OPERIODO !== "mes" || !v || !(v.meta_ate_hoje > 0)) return "";
+    const m = v.meta_ate_hoje, hoje = v.valor / m * 100, hip = (v.valor + extra) / m * 100;
+    return `<div class="vsub" style="margin-top:2px">Nesse caso estaria em <b style="color:var(--ink)">${p0(hip)} da meta até hoje</b> (${brl(v.valor + extra)} de ${brl(m)}) · hoje está em ${p0(hoje)}</div>`; };
   const est = x => { if (mv == null || !x.emitV) return ""; const e = x.emitV * mv / 100, d = x.fatV - e;
     return `<div class="vsub" style="margin-top:4px">Na média da equipe (${p0(mv)} do valor) seriam <b style="color:var(--ink)">${brl(e)}</b> · ${Math.abs(d) < 0.5 ? "na média" : d > 0 ? `<span style="color:var(--good);font-weight:600">${brl(d)} acima</span>` : `<span style="color:var(--bad);font-weight:600">${brl(-d)} abaixo</span>`}</div>${metaHip(x, e - x.fatV)}`; };
   const linha = (x, i) => `<div class="vrow"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(nomeProprio(x.rca))}</span><span class="vsub" style="margin:0">${x.fat} de ${pl(x.emit, "orçamento", "orçamentos")}</span></div>
