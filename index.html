@@ -928,8 +928,9 @@ async function carregar() {
     const r = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache: "no-store" });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const d = await r.json();
+    const igual = DATA && d && d.atualizado_em && d.atualizado_em === DATA.atualizado_em;
     render(d);
-    store("vendas_cache", JSON.stringify(d));
+    if (!igual && d && d.faturamento) store("vendas_cache", JSON.stringify(d));
   } catch (e) {
     const c = load("vendas_cache");
     if (c) { try { render(JSON.parse(c)); } catch (_) { } }
@@ -1002,7 +1003,11 @@ const _carregar = carregar;
 carregar = async function () { await _carregar(); if (DATA && DATA._exemplo) pedirSenha(); };
 const _render = render;
 render = function (d) { if (d && d.ok === false) { PW_ATUAL = null; store("vendas_pw", null); pedirSenha("Senha incorreta. Tente de novo."); return; } _render(d); };
-if (!PW_ATUAL) pedirSenha(); else carregar();
+if (!PW_ATUAL) pedirSenha(); else {
+  // mostra na hora a última leitura guardada no aparelho e atualiza em seguida
+  try { const c = load("vendas_cache"); if (c) { const d = JSON.parse(c); if (d && d.faturamento && !d._exemplo) { _render(d); $("#alerta").hidden = true; } } } catch (e) { }
+  carregar();
+}
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}</script>
 </body>
