@@ -834,8 +834,14 @@ function abrirVendFat(nome) {
     return { v, n: L.length, cli: new Set(L.map(n => n.cliente_cod ?? n.cliente)).size, tk: L.length ? v / L.length : null, mg: v ? (v - c) / v * 100 : null }; };
   const meses = []; for (let i = 0; i < 12; i++) { const d = new Date(ref.getFullYear(), ref.getMonth() - i, 1), ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); if (!ini || ym < ini.slice(0, 7)) break;
     const L = ns.filter(n => n.data.slice(0, 7) === ym); meses.push({ ym, d, rot: MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2), atual: i === 0, r: res(L), mp: res(L.filter(n => +n.data.slice(8) <= dia)) }); }
+  const HF = (DATA.hist_mensal && DATA.hist_mensal.fat) || [];
+  if (HF.length) { meses.length = 0; for (let i = 0; i < 12; i++) { const d = new Date(ref.getFullYear(), ref.getMonth() - i, 1), ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+      const h = HF.find(x => x.mes === ym && String(x.rca).toLowerCase() === k), L = ns.filter(n => n.data.slice(0, 7) === ym);
+      if (!h && !HF.some(x => x.mes <= ym && String(x.rca).toLowerCase() === k)) break;
+      const r = h ? { v: h.valor, n: h.pedidos, cli: h.clientes, tk: h.pedidos ? h.valor / h.pedidos : null, mg: h.valor ? (h.valor - (h.custo || 0)) / h.valor * 100 : null } : res([]);
+      meses.push({ ym, d, rot: MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2), atual: i === 0, r, mp: res(L.filter(n => +n.data.slice(8) <= dia)), semMp: !ini || ym + "-01" < ini }); } }
   const eqNomes = ((DATA.faturamento.por_vendedor) || []).filter(v => v.meta > 0).map(v => String(v.nome).toLowerCase());
-  const mediaCli = ym => { if (!eqNomes.length) return null; const t = eqNomes.reduce((s, nm) => s + new Set(todas.filter(n => n.data.slice(0, 7) === ym && String(n.rca).toLowerCase() === nm).map(n => n.cliente_cod ?? n.cliente)).size, 0); return t / eqNomes.length; };
+  const mediaCli = ym => { if (!eqNomes.length) return null; if (HF.length) return eqNomes.reduce((s, nm) => s + ((HF.find(x => x.mes === ym && String(x.rca).toLowerCase() === nm) || {}).clientes || 0), 0) / eqNomes.length; const t = eqNomes.reduce((s, nm) => s + new Set(todas.filter(n => n.data.slice(0, 7) === ym && String(n.rca).toLowerCase() === nm).map(n => n.cliente_cod ?? n.cliente)).size, 0); return t / eqNomes.length; };
   const mx = Math.max(1, ...meses.map(m => m.r.v)), p1 = v => v == null ? "—" : fmtNum(v.toFixed(1)) + "%";
   const dl = (a, b) => { if (!(b > 0)) return ""; const p = (a - b) / b * 100; return ` <span style="color:${p >= 0 ? "var(--good)" : "var(--bad)"};font-weight:600">${p >= 0 ? "▲" : "▼"} ${fmtPct(p)}</span>`; };
   $("#det-title").textContent = nome;
@@ -846,7 +852,7 @@ function abrirVendFat(nome) {
       <div class="vtrack"><div style="width:${(m.r.v / mx * 100).toFixed(1)}%;background:var(--ink2)"></div></div>
       <div class="mstats" style="margin-top:10px;border-top:0;padding-top:0"><div><span>Pedidos</span><b>${m.r.n}</b><small>ticket ${brl(m.r.tk)}</small></div>
         <div><span>Clientes</span><b style="color:${(e => e == null || Math.round(e) === m.r.cli ? "var(--ink)" : m.r.cli > e ? "var(--good)" : "var(--bad)")(mediaCli(m.ym))}">${m.r.cli}</b><small>${(e => e == null ? "atendidos" : "equipe " + fmtNum(Math.round(e)))(mediaCli(m.ym))}</small></div><div><span>Margem</span><b>${p1(m.r.mg)}</b><small>lucro ${brl(m.r.v * (m.r.mg || 0) / 100)}</small></div></div>
-      ${ant ? `<div class="vsub">${m.atual ? `Mesmo período de ${ant.rot.split("/")[0]} (1–${dia}): ${brl(ant.mp.v)}${dl(m.r.v, ant.mp.v)} · ${ant.mp.n} pedidos${dl(m.r.n, ant.mp.n)} · ${ant.mp.cli} clientes${dl(m.r.cli, ant.mp.cli)}`
+      ${ant ? `<div class="vsub">${m.atual && !ant.semMp ? `Mesmo período de ${ant.rot.split("/")[0]} (1–${dia}): ${brl(ant.mp.v)}${dl(m.r.v, ant.mp.v)} · ${ant.mp.n} pedidos${dl(m.r.n, ant.mp.n)} · ${ant.mp.cli} clientes${dl(m.r.cli, ant.mp.cli)}`
         : `vs. ${ant.rot.split("/")[0]}: faturamento${dl(m.r.v, ant.r.v) || " —"} · pedidos${dl(m.r.n, ant.r.n) || " —"} · clientes${dl(m.r.cli, ant.r.cli) || " —"}`}</div>` : ""}</div>`; }).join("") : `<div class="empty">Sem notas no período disponível.</div>`;
   const mesAt = ns.filter(n => n.data.slice(0, 7) === (meses[0] || {}).ym), pc = {}; mesAt.forEach(n => { const c = pc[n.cliente_cod ?? n.cliente] || (pc[n.cliente_cod ?? n.cliente] = { cod: n.cliente_cod, nome: n.cliente, v: 0, n: 0 }); c.v += n.valor; c.n++; });
   const top = Object.values(pc).sort((a, b) => b.v - a.v).slice(0, 8);
@@ -867,12 +873,17 @@ function abrirVend(rca) {
   const pers = [["dia", "Hoje"], ["semana", "Semana"], ["quinzena", "Quinzena"], ["mes", "Mês"]];
   const ref = refData(), datas = todos.map(r => r.data).filter(Boolean).sort(), ini = datas[0] || hojeStr(ref);
   const meses = []; for (let k = 0; k < 12; k++) { const d = new Date(ref.getFullYear(), ref.getMonth() - k, 1), ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); if (ym < ini.slice(0, 7)) break; meses.push({ ym, rot: MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2), parcial: ym + "-01" < ini }); }
+  const HC = (DATA.hist_mensal && DATA.hist_mensal.conv) || [];
+  const somaH = L => { const n = L.reduce((s, x) => s + x.emit, 0), f = L.reduce((s, x) => s + x.fat, 0), ev = L.reduce((s, x) => s + x.emit_v, 0), fv = L.reduce((s, x) => s + x.fat_v, 0); return { n, f, fv, q: n ? f / n * 100 : null, v: ev ? fv / ev * 100 : null }; };
+  const linH = (rot, ym) => { const a = somaH(HC.filter(x => x.mes === ym && x.rca === rca)), e = somaH(HC.filter(x => x.mes === ym));
+    return `<tr><td><div class="cli" style="font-weight:600">${rot}</div><div class="mt">${a.n ? `${a.f} de ${a.n} · ${brl(a.fv)}` : "sem orçamentos"}</div></td>${cel(a.q, e.q)}${cel(a.v, e.v)}</tr>`; };
+  const mesesH = []; if (HC.length) for (let i = 0; i < 12; i++) { const d = new Date(ref.getFullYear(), ref.getMonth() - i, 1), ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); if (!HC.some(x => x.mes <= ym)) break; mesesH.push({ ym, rot: MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2) }); }
   const cab = `<tr><td></td><td class="hv"><small>Qtd</small></td><td class="hv"><small>Valor</small></td></tr>`;
   $("#det-title").textContent = nomeProprio(rca);
   $("#det-sub").innerHTML = "Histórico de conversão · <span style=\"color:var(--good);font-weight:600\">verde</span> acima da equipe, <span style=\"color:var(--bad);font-weight:600\">vermelho</span> abaixo";
   $("#det-kv").innerHTML = "";
   $("#det-extra").innerHTML = `<h4 class="label" style="margin:4px 0 4px">Por período</h4><table class="hist">${cab}${pers.map(([p, n]) => lin(n, "", meus.filter(r => noPeriodo(r, p)), todos.filter(r => noPeriodo(r, p)))).join("")}</table>
-    <h4 class="label" style="margin:16px 0 4px">Por mês</h4><table class="hist">${cab}${meses.map(m => lin(m.rot, m.parcial ? `a partir de ${fmtData(ini)}` : "", meus.filter(r => r.data.slice(0, 7) === m.ym), todos.filter(r => r.data.slice(0, 7) === m.ym))).join("")}</table>`;
+    <h4 class="label" style="margin:16px 0 4px">Por mês</h4><table class="hist">${cab}${mesesH.length ? mesesH.map(m => linH(m.rot, m.ym)).join("") : meses.map(m => lin(m.rot, m.parcial ? `a partir de ${fmtData(ini)}` : "", meus.filter(r => r.data.slice(0, 7) === m.ym), todos.filter(r => r.data.slice(0, 7) === m.ym))).join("")}</table>`;
   const ab = meus.filter(r => statusDe(r) === "L").sort((a, b) => b.valor - a.valor), tot = ab.reduce((s, r) => s + r.valor, 0);
   $("#det-itens").previousElementSibling.textContent = `Em aberto (${ab.length})`;
   $("#det-itens").innerHTML = ab.length ? ab.map(r => { const da = diasAberto(r);
