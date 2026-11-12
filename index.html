@@ -866,9 +866,12 @@ function renderRankingConv(L, diretos) {
       <div data-st="P" role="button" style="cursor:pointer"><span>Perdido <span style="display:inline;color:var(--s1)">›</span></span><b>${brl(tot.peV)}</b><small>${tot.pe} canc./vencidos</small></div></div>${eqDir.dir ? `<div class="mproj">Contando os ${pl(eqDir.dir, "pedido direto", "pedidos diretos")} das vendedoras (${brl(eqDir.dirV)}): <b style="color:var(--ink)">${p0(ct(eqDir))}</b></div>` : ""}`;
   $("#o-rank-geral").innerHTML = geral; $("#o-rank-geral").hidden = !geral;
   const mq = cq(tot), mv = cvl(tot);
+  const est = x => { if (mv == null || !x.emitV) return ""; const e = x.emitV * mv / 100, d = x.fatV - e;
+    return `<div class="vsub" style="margin-top:4px">Na média da equipe (${p0(mv)} do valor) seriam <b style="color:var(--ink)">${brl(e)}</b> · ${Math.abs(d) < 0.5 ? "na média" : d > 0 ? `<span style="color:var(--good);font-weight:600">${brl(d)} acima</span>` : `<span style="color:var(--bad);font-weight:600">${brl(-d)} abaixo</span>`}</div>`; };
   const linha = (x, i) => `<div class="vrow"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(nomeProprio(x.rca))}</span><span class="vsub" style="margin:0">${x.fat} de ${pl(x.emit, "orçamento", "orçamentos")}</span></div>
     <div style="margin-top:10px;display:grid;gap:6px">${barra("Qtd", cq(x), mq)}${barra("Valor", cvl(x), mv)}</div>
     <div class="vsub"><b style="color:var(--ink)">${brl(x.fatV)}</b> convertidos${x.ab ? ` · ${brl(x.abV)} em aberto (${x.ab})` : ""}${x.pe ? ` · <span style="color:var(--bad)">${brl(x.peV)} perdidos (${x.pe})</span>` : ""}</div>
+    ${est(x)}
     ${x.dir ? `<div class="vsub" style="margin-top:2px;color:var(--muted)">+ ${pl(x.dir, "pedido direto", "pedidos diretos")} · ${brl(x.dirV)} → <b style="color:var(--ink2)">${p0(ct(x))}</b> contando os diretos</div>` : ""}</div>`;
   $("#o-rank").innerHTML = com.length ? com.map(linha).join("") + `<div class="vsub" style="padding:10px 0 12px;border-top:1px solid var(--grid);color:var(--muted)">O traço preto nas barras é a média da equipe.</div>` : `<div class="empty">Sem orçamentos no período.</div>`;
   $("#o-dir-wrap").hidden = !sem.length;
