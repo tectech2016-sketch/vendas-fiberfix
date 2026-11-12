@@ -834,16 +834,18 @@ function abrirVendFat(nome) {
     return { v, n: L.length, cli: new Set(L.map(n => n.cliente_cod ?? n.cliente)).size, tk: L.length ? v / L.length : null, mg: v ? (v - c) / v * 100 : null }; };
   const meses = []; for (let i = 0; i < 12; i++) { const d = new Date(ref.getFullYear(), ref.getMonth() - i, 1), ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); if (!ini || ym < ini.slice(0, 7)) break;
     const L = ns.filter(n => n.data.slice(0, 7) === ym); meses.push({ ym, d, rot: MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2), atual: i === 0, r: res(L), mp: res(L.filter(n => +n.data.slice(8) <= dia)) }); }
+  const eqNomes = ((DATA.faturamento.por_vendedor) || []).filter(v => v.meta > 0).map(v => String(v.nome).toLowerCase());
+  const mediaCli = ym => { if (!eqNomes.length) return null; const t = eqNomes.reduce((s, nm) => s + new Set(todas.filter(n => n.data.slice(0, 7) === ym && String(n.rca).toLowerCase() === nm).map(n => n.cliente_cod ?? n.cliente)).size, 0); return t / eqNomes.length; };
   const mx = Math.max(1, ...meses.map(m => m.r.v)), p1 = v => v == null ? "—" : fmtNum(v.toFixed(1)) + "%";
   const dl = (a, b) => { if (!(b > 0)) return ""; const p = (a - b) / b * 100; return ` <span style="color:${p >= 0 ? "var(--good)" : "var(--bad)"};font-weight:600">${p >= 0 ? "▲" : "▼"} ${fmtPct(p)}</span>`; };
   $("#det-title").textContent = nome;
-  $("#det-sub").textContent = "Comparativo mês a mês · faturamento, pedidos e clientes";
+  $("#det-sub").innerHTML = "Comparativo mês a mês · em clientes, <span style=\"color:var(--good);font-weight:600\">verde</span> acima da média da equipe, <span style=\"color:var(--bad);font-weight:600\">vermelho</span> abaixo";
   $("#det-kv").innerHTML = "";
   $("#det-extra").innerHTML = meses.length ? meses.map((m, i) => { const ant = meses[i + 1];
     return `<div class="vrow" style="${i ? "" : "border-top:0;padding-top:4px"}"><div class="vtop"><span class="vnome">${m.rot}${m.atual ? ` <small style="font-weight:400;color:var(--muted);font-size:12px">até dia ${dia}</small>` : ""}</span><b class="vval">${brl(m.r.v)}</b></div>
       <div class="vtrack"><div style="width:${(m.r.v / mx * 100).toFixed(1)}%;background:var(--ink2)"></div></div>
       <div class="mstats" style="margin-top:10px;border-top:0;padding-top:0"><div><span>Pedidos</span><b>${m.r.n}</b><small>ticket ${brl(m.r.tk)}</small></div>
-        <div><span>Clientes</span><b>${m.r.cli}</b><small>atendidos</small></div><div><span>Margem</span><b>${p1(m.r.mg)}</b><small>lucro ${brl(m.r.v * (m.r.mg || 0) / 100)}</small></div></div>
+        <div><span>Clientes</span><b style="color:${(e => e == null || Math.round(e) === m.r.cli ? "var(--ink)" : m.r.cli > e ? "var(--good)" : "var(--bad)")(mediaCli(m.ym))}">${m.r.cli}</b><small>${(e => e == null ? "atendidos" : "equipe " + fmtNum(Math.round(e)))(mediaCli(m.ym))}</small></div><div><span>Margem</span><b>${p1(m.r.mg)}</b><small>lucro ${brl(m.r.v * (m.r.mg || 0) / 100)}</small></div></div>
       ${ant ? `<div class="vsub">${m.atual ? `Mesmo período de ${ant.rot.split("/")[0]} (1–${dia}): ${brl(ant.mp.v)}${dl(m.r.v, ant.mp.v)} · ${ant.mp.n} pedidos${dl(m.r.n, ant.mp.n)} · ${ant.mp.cli} clientes${dl(m.r.cli, ant.mp.cli)}`
         : `vs. ${ant.rot.split("/")[0]}: faturamento${dl(m.r.v, ant.r.v) || " —"} · pedidos${dl(m.r.n, ant.r.n) || " —"} · clientes${dl(m.r.cli, ant.r.cli) || " —"}`}</div>` : ""}</div>`; }).join("") : `<div class="empty">Sem notas no período disponível.</div>`;
   const mesAt = ns.filter(n => n.data.slice(0, 7) === (meses[0] || {}).ym), pc = {}; mesAt.forEach(n => { const c = pc[n.cliente_cod ?? n.cliente] || (pc[n.cliente_cod ?? n.cliente] = { cod: n.cliente_cod, nome: n.cliente, v: 0, n: 0 }); c.v += n.valor; c.n++; });
