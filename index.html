@@ -100,6 +100,7 @@ h2 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
 .vval{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
 .vtrack{position:relative;height:8px;background:var(--grid);border-radius:4px;margin-top:8px} .vtrack>div{height:100%;border-radius:4px}
 .vtrack>i{position:absolute;top:-3px;width:2px;height:14px;background:var(--ink);border-radius:1px}
+.kv.vsel{cursor:pointer;border-radius:10px;padding:6px 8px;margin:-6px -8px} .kv.vsel.on{background:var(--grid)} .kv.vsel.on span{color:var(--ink);font-weight:600}
 .cbar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2)} .cbar>span{width:34px;flex:none} .cbar>b{width:38px;text-align:right;color:var(--ink);flex:none;font-variant-numeric:tabular-nums}
 .vsub{font-size:12px;color:var(--ink2);margin-top:6px}
 .bars{display:flex;flex-direction:column;gap:10px}
@@ -824,11 +825,12 @@ function abrirFin(cod, numOrca) {
 }
 let CORDEM = load("vendas_cordem") || "qtd", CONV_ARGS = null, CONV_LISTAS = {}, ORCS_ABERTA = null;
 function abrirOrcs(cfg) {
-  ORCS_ABERTA = cfg; const L = cfg.lista.slice().sort((a, b) => b.valor - a.valor), tot = L.reduce((s, r) => s + r.valor, 0);
+  ORCS_ABERTA = cfg; const todas = cfg.lista.slice().sort((a, b) => b.valor - a.valor);
+  const L = cfg.rca ? todas.filter(r => r.rca === cfg.rca) : todas, tot = L.reduce((s, r) => s + r.valor, 0);
   $("#det-title").textContent = cfg.titulo;
-  $("#det-sub").innerHTML = `${L.length} orçamento${L.length === 1 ? "" : "s"} · <b>${brl2(tot)}</b>`;
-  const porV = {}; L.forEach(r => { porV[r.rca] = (porV[r.rca] || 0) + r.valor; });
-  $("#det-kv").innerHTML = Object.entries(porV).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="kv"><span>${esc(primeiroNome(k))}</span><b>${brl(v)}</b></div>`).join("");
+  $("#det-sub").innerHTML = `${L.length} orçamento${L.length === 1 ? "" : "s"} · <b>${brl2(tot)}</b>${cfg.rca ? ` · só ${esc(nomeProprio(primeiroNome(cfg.rca)))} · <a href="#" data-rca="" style="color:var(--s1);text-decoration:none;font-weight:600">ver todas</a>` : ""}`;
+  const porV = {}; todas.forEach(r => { porV[r.rca] = (porV[r.rca] || 0) + r.valor; });
+  $("#det-kv").innerHTML = Object.entries(porV).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="kv vsel${cfg.rca === k ? " on" : ""}" data-rca="${esc(k)}" role="button"><span>${esc(primeiroNome(k))}</span><b>${brl(v)}</b></div>`).join("");
   $("#det-extra").innerHTML = ""; $("#det-itens").previousElementSibling.textContent = "Orçamentos";
   $("#det-itens").innerHTML = L.length ? L.map(r => { const st = statusDe(r), da = diasAberto(r);
     return `<tr class="orc" data-orc="${esc(r.num)}" role="button"><td><div class="cli">${r.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(r.cliente_cod)} · </span>` : ""}${esc(r.cliente)}</div>
@@ -934,6 +936,8 @@ $("#o-lista").addEventListener("keydown", e => { if (e.key === "Enter") { const 
 $("#det-close").addEventListener("click", () => $("#det").close());
 $("#pa-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; PAFILTRO = b.dataset.k; renderAndamento(DATA); });
 $("#pa-lista").addEventListener("click", e => { const tr = e.target.closest("tr[data-ped]"); if (tr) abrirPed(tr.dataset.ped); });
+const filtraRca = e => { const d = e.target.closest("[data-rca]"); if (!d || !ORCS_ABERTA || !$("#det-kv .vsel")) return; e.preventDefault(); const k = d.dataset.rca; abrirOrcs({ ...ORCS_ABERTA, rca: k && ORCS_ABERTA.rca !== k ? k : null }); };
+$("#det-kv").addEventListener("click", filtraRca); $("#det-sub").addEventListener("click", filtraRca);
 $("#o-rank-geral").addEventListener("click", e => { const d = e.target.closest("[data-st]"); if (!d) return; const st = d.dataset.st;
   abrirOrcs({ lista: CONV_LISTAS[st] || [], titulo: ({ F: "Orçamentos convertidos", L: "Orçamentos em aberto", P: "Orçamentos perdidos" })[st] + " " + NOMEP[OPERIODO] }); });
 $("#det-itens").addEventListener("click", e => { const tr = e.target.closest("tr.orc[data-orc]"); if (!tr) return; const cfg = ORCS_ABERTA; abrirOrc(tr.dataset.orc);
