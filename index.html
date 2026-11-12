@@ -822,7 +822,21 @@ function abrirFin(cod, numOrca) {
   $("#det-itens").innerHTML = pg.length ? pg.map(linhaPg).join("") : `<tr><td class="empty">Nenhum título liquidado nos últimos 12 meses.</td></tr>`;
   $("#det .sheet-b").scrollTop = 0;
 }
-let CORDEM = load("vendas_cordem") || "qtd", CONV_ARGS = null;
+let CORDEM = load("vendas_cordem") || "qtd", CONV_ARGS = null, CONV_LISTAS = {}, ORCS_ABERTA = null;
+function abrirOrcs(cfg) {
+  ORCS_ABERTA = cfg; const L = cfg.lista.slice().sort((a, b) => b.valor - a.valor), tot = L.reduce((s, r) => s + r.valor, 0);
+  $("#det-title").textContent = cfg.titulo;
+  $("#det-sub").innerHTML = `${L.length} orçamento${L.length === 1 ? "" : "s"} · <b>${brl2(tot)}</b>`;
+  const porV = {}; L.forEach(r => { porV[r.rca] = (porV[r.rca] || 0) + r.valor; });
+  $("#det-kv").innerHTML = Object.entries(porV).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="kv"><span>${esc(primeiroNome(k))}</span><b>${brl(v)}</b></div>`).join("");
+  $("#det-extra").innerHTML = ""; $("#det-itens").previousElementSibling.textContent = "Orçamentos";
+  $("#det-itens").innerHTML = L.length ? L.map(r => { const st = statusDe(r), da = diasAberto(r);
+    return `<tr class="orc" data-orc="${esc(r.num)}" role="button"><td><div class="cli">${r.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(r.cliente_cod)} · </span>` : ""}${esc(r.cliente)}</div>
+      <div class="mt">#${esc(r.num)} · ${fmtData(r.data)}${r.hora ? ` às ${esc(r.hora)}` : ""} · ${esc(primeiroNome(r.rca))}${st === "L" ? ` · ${da === 0 ? "aberto hoje" : da === 1 ? "1 dia em aberto" : da + " dias em aberto"}` : st === "F" && r.nf ? ` · NF ${esc(r.nf)}` : ` · ${esc(POS[st] || "")}`}</div>${r.cond_pagto ? `<div class="mt"><span class="prazo">⏱ ${esc(r.cond_pagto)}</span></div>` : ""}</td>
+      <td class="v">${brl2(r.valor)} <span class="chev">›</span></td></tr>`; }).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(tot)}</td></tr>` : `<tr><td class="empty">Nenhum orçamento.</td></tr>`;
+  if (!$("#det").open) $("#det").showModal();
+  $("#det .sheet-b").scrollTop = 0;
+}
 const nomeProprio = s => String(s || "—").toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
 function renderRankingConv(L, diretos) {
   CONV_ARGS = [L, diretos];
@@ -831,6 +845,7 @@ function renderRankingConv(L, diretos) {
   L.forEach(r => { const x = g(r.rca || "—"), st = statusDe(r); x.emit++; x.emitV += r.valor;
     if (st === "F") { x.fat++; x.fatV += r.valor; } else if (st === "L") { x.ab++; x.abV += r.valor; } else { x.pe++; x.peV += r.valor; } });
   diretos.forEach(p => { const x = g(p.rca || "—"); x.dir++; x.dirV += p.valor || 0; });
+  CONV_LISTAS = { F: L.filter(r => statusDe(r) === "F"), L: L.filter(r => statusDe(r) === "L"), P: L.filter(r => ["C", "V"].includes(statusDe(r))) };
   const todos = Object.values(por), tot = zero("Geral");
   todos.forEach(x => Object.keys(tot).forEach(k => { if (k !== "rca") tot[k] += x[k]; }));
   const cq = x => x.emit ? x.fat / x.emit * 100 : null, cvl = x => x.emitV ? x.fatV / x.emitV * 100 : null;
@@ -844,9 +859,9 @@ function renderRankingConv(L, diretos) {
   const eqDir = zero("eq"); todos.filter(x => x.emit > 0).forEach(x => Object.keys(eqDir).forEach(k => { if (k !== "rca") eqDir[k] += x[k]; }));
   const geral = !tot.emit ? "" : `<div class="vtop"><div class="label" style="margin:0">Equipe</div><span class="vsub" style="margin:0">${pl(tot.fat, "convertido", "convertidos")} de ${tot.emit}</span></div>
     <div class="vtop" style="margin-top:6px;align-items:baseline"><div class="hero">${p0(cq(tot))}</div><span class="vsub" style="margin:0"><b style="color:var(--ink)">${p0(cvl(tot))}</b> em valor</span></div>
-    <div class="mstats" style="margin-top:12px"><div><span>Convertido</span><b>${brl(tot.fatV)}</b><small>${pl(tot.fat, "orçamento", "orçamentos")}</small></div>
-      <div><span>Em aberto</span><b>${brl(tot.abV)}</b><small>${pl(tot.ab, "orçamento", "orçamentos")}</small></div>
-      <div><span>Perdido</span><b>${brl(tot.peV)}</b><small>${tot.pe} canc./vencidos</small></div></div>${eqDir.dir ? `<div class="mproj">Contando os ${pl(eqDir.dir, "pedido direto", "pedidos diretos")} das vendedoras (${brl(eqDir.dirV)}): <b style="color:var(--ink)">${p0(ct(eqDir))}</b></div>` : ""}`;
+    <div class="mstats" style="margin-top:12px"><div data-st="F" role="button" style="cursor:pointer"><span>Convertido <span style="display:inline;color:var(--s1)">›</span></span><b>${brl(tot.fatV)}</b><small>${pl(tot.fat, "orçamento", "orçamentos")}</small></div>
+      <div data-st="L" role="button" style="cursor:pointer"><span>Em aberto <span style="display:inline;color:var(--s1)">›</span></span><b>${brl(tot.abV)}</b><small>${pl(tot.ab, "orçamento", "orçamentos")}</small></div>
+      <div data-st="P" role="button" style="cursor:pointer"><span>Perdido <span style="display:inline;color:var(--s1)">›</span></span><b>${brl(tot.peV)}</b><small>${tot.pe} canc./vencidos</small></div></div>${eqDir.dir ? `<div class="mproj">Contando os ${pl(eqDir.dir, "pedido direto", "pedidos diretos")} das vendedoras (${brl(eqDir.dirV)}): <b style="color:var(--ink)">${p0(ct(eqDir))}</b></div>` : ""}`;
   $("#o-rank-geral").innerHTML = geral; $("#o-rank-geral").hidden = !geral;
   const mq = cq(tot), mv = cvl(tot);
   const linha = (x, i) => `<div class="vrow"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(nomeProprio(x.rca))}</span><span class="vsub" style="margin:0">${x.fat} de ${pl(x.emit, "orçamento", "orçamentos")}</span></div>
@@ -919,6 +934,10 @@ $("#o-lista").addEventListener("keydown", e => { if (e.key === "Enter") { const 
 $("#det-close").addEventListener("click", () => $("#det").close());
 $("#pa-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; PAFILTRO = b.dataset.k; renderAndamento(DATA); });
 $("#pa-lista").addEventListener("click", e => { const tr = e.target.closest("tr[data-ped]"); if (tr) abrirPed(tr.dataset.ped); });
+$("#o-rank-geral").addEventListener("click", e => { const d = e.target.closest("[data-st]"); if (!d) return; const st = d.dataset.st;
+  abrirOrcs({ lista: CONV_LISTAS[st] || [], titulo: ({ F: "Orçamentos convertidos", L: "Orçamentos em aberto", P: "Orçamentos perdidos" })[st] + " " + NOMEP[OPERIODO] }); });
+$("#det-itens").addEventListener("click", e => { const tr = e.target.closest("tr.orc[data-orc]"); if (!tr) return; const cfg = ORCS_ABERTA; abrirOrc(tr.dataset.orc);
+  const a = document.createElement("a"); a.href = "#"; a.textContent = "‹ Voltar"; a.style.cssText = "color:var(--s1);text-decoration:none;font-weight:600;margin-right:10px"; a.addEventListener("click", ev => { ev.preventDefault(); abrirOrcs(cfg); }); $("#det-sub").prepend(a); });
 $("#c-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; CORDEM = b.dataset.c; store("vendas_cordem", CORDEM); if (CONV_ARGS) renderRankingConv(...CONV_ARGS); });
 $("#card-hoje").addEventListener("click", () => abrirNotas(hojeStr(refData())));
 $("#card-ontem").addEventListener("click", () => { if (ONTEM) abrirNotas(ONTEM); });
