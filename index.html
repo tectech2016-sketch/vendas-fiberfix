@@ -834,23 +834,25 @@ function renderRankingConv(L, diretos) {
   const todos = Object.values(por), tot = zero("Geral");
   todos.forEach(x => Object.keys(tot).forEach(k => { if (k !== "rca") tot[k] += x[k]; }));
   const cq = x => x.emit ? x.fat / x.emit * 100 : null, cvl = x => x.emitV ? x.fatV / x.emitV * 100 : null;
+  const ct = x => (x.emit + x.dir) ? (x.fat + x.dir) / (x.emit + x.dir) * 100 : null;
   const p0 = v => v == null ? "—" : fmtNum(Math.round(v)) + "%", pl = (n, a, b) => `${n} ${n === 1 ? a : b}`;
   const chave = CORDEM === "valor" ? cvl : cq;
   const com = todos.filter(x => x.emit > 0).sort((a, b) => chave(b) - chave(a) || b.fatV - a.fatV), sem = todos.filter(x => !x.emit && x.dir > 0).sort((a, b) => b.dirV - a.dirV);
   document.querySelectorAll("#c-seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.c === CORDEM));
   $("#o-rank-sub").textContent = "orçamentos que viraram venda";
   const barra = (rot, v, media) => `<div class="cbar"><span>${rot}</span><div class="vtrack" style="margin:0;flex:1"><div style="width:${(v || 0).toFixed(1)}%;background:var(--ink2)"></div>${media == null ? "" : `<i style="left:${media.toFixed(1)}%" title="média da equipe"></i>`}</div><b>${p0(v)}</b></div>`;
+  const eqDir = zero("eq"); todos.filter(x => x.emit > 0).forEach(x => Object.keys(eqDir).forEach(k => { if (k !== "rca") eqDir[k] += x[k]; }));
   const geral = !tot.emit ? "" : `<div class="vtop"><div class="label" style="margin:0">Equipe</div><span class="vsub" style="margin:0">${pl(tot.fat, "convertido", "convertidos")} de ${tot.emit}</span></div>
     <div class="vtop" style="margin-top:6px;align-items:baseline"><div class="hero">${p0(cq(tot))}</div><span class="vsub" style="margin:0"><b style="color:var(--ink)">${p0(cvl(tot))}</b> em valor</span></div>
     <div class="mstats" style="margin-top:12px"><div><span>Convertido</span><b>${brl(tot.fatV)}</b><small>${pl(tot.fat, "orçamento", "orçamentos")}</small></div>
       <div><span>Em aberto</span><b>${brl(tot.abV)}</b><small>${pl(tot.ab, "orçamento", "orçamentos")}</small></div>
-      <div><span>Perdido</span><b>${brl(tot.peV)}</b><small>${tot.pe} canc./vencidos</small></div></div>`;
+      <div><span>Perdido</span><b>${brl(tot.peV)}</b><small>${tot.pe} canc./vencidos</small></div></div>${eqDir.dir ? `<div class="mproj">Contando os ${pl(eqDir.dir, "pedido direto", "pedidos diretos")} das vendedoras (${brl(eqDir.dirV)}): <b style="color:var(--ink)">${p0(ct(eqDir))}</b></div>` : ""}`;
   $("#o-rank-geral").innerHTML = geral; $("#o-rank-geral").hidden = !geral;
   const mq = cq(tot), mv = cvl(tot);
   const linha = (x, i) => `<div class="vrow"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(nomeProprio(x.rca))}</span><span class="vsub" style="margin:0">${x.fat} de ${pl(x.emit, "orçamento", "orçamentos")}</span></div>
     <div style="margin-top:10px;display:grid;gap:6px">${barra("Qtd", cq(x), mq)}${barra("Valor", cvl(x), mv)}</div>
     <div class="vsub"><b style="color:var(--ink)">${brl(x.fatV)}</b> convertidos${x.ab ? ` · ${brl(x.abV)} em aberto (${x.ab})` : ""}${x.pe ? ` · <span style="color:var(--bad)">${brl(x.peV)} perdidos (${x.pe})</span>` : ""}</div>
-    ${x.dir ? `<div class="vsub" style="margin-top:2px;color:var(--muted)">+ ${pl(x.dir, "pedido direto", "pedidos diretos")}, sem orçamento · ${brl(x.dirV)}</div>` : ""}</div>`;
+    ${x.dir ? `<div class="vsub" style="margin-top:2px;color:var(--muted)">+ ${pl(x.dir, "pedido direto", "pedidos diretos")} · ${brl(x.dirV)} → <b style="color:var(--ink2)">${p0(ct(x))}</b> contando os diretos</div>` : ""}</div>`;
   $("#o-rank").innerHTML = com.length ? com.map(linha).join("") + `<div class="vsub" style="padding:10px 0 12px;border-top:1px solid var(--grid);color:var(--muted)">O traço preto nas barras é a média da equipe.</div>` : `<div class="empty">Sem orçamentos no período.</div>`;
   $("#o-dir-wrap").hidden = !sem.length;
   $("#o-dir").innerHTML = sem.map(x => `<div class="vrow"><div class="vtop"><span class="vnome">${esc(nomeProprio(x.rca))}</span><b class="vval" style="font-size:17px">${brl(x.dirV)}</b></div><div class="vsub">${pl(x.dir, "pedido direto", "pedidos diretos")} · ticket ${brl(x.dirV / x.dir)}</div></div>`).join("");
