@@ -101,6 +101,7 @@ h2 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
 .vtrack{position:relative;height:8px;background:var(--grid);border-radius:4px;margin-top:8px} .vtrack>div{height:100%;border-radius:4px}
 .vtrack>i{position:absolute;top:-3px;width:2px;height:14px;background:var(--ink);border-radius:1px}
 .kv.vsel{cursor:pointer;border-radius:10px;padding:6px 8px;margin:-6px -8px} .kv.vsel.on{background:var(--grid)} .kv.vsel.on span{color:var(--ink);font-weight:600}
+table.hist{width:100%} table.hist td{padding:8px 0;border-top:1px solid var(--grid);vertical-align:middle} table.hist tr:first-child td{border-top:0;padding:0 0 2px} table.hist td.hv{text-align:right;width:74px;white-space:nowrap} table.hist td.hv b{display:block;font-size:15px;font-variant-numeric:tabular-nums} table.hist small{font-size:11px;color:var(--muted)}
 .cbar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2)} .cbar>span{width:34px;flex:none} .cbar>b{width:38px;text-align:right;color:var(--ink);flex:none;font-variant-numeric:tabular-nums}
 .vsub{font-size:12px;color:var(--ink2);margin-top:6px}
 .bars{display:flex;flex-direction:column;gap:10px}
@@ -824,8 +825,34 @@ function abrirFin(cod, numOrca) {
   $("#det .sheet-b").scrollTop = 0;
 }
 let CORDEM = load("vendas_cordem") || "qtd", CONV_ARGS = null, CONV_LISTAS = {}, ORCS_ABERTA = null;
+let DET_BACK = null;
+function abrirVend(rca) {
+  DET_BACK = () => abrirVend(rca);
+  const todos = (DATA.orcamentos.lista || []), meus = todos.filter(r => r.rca === rca);
+  const conta = L => { const f = L.filter(r => statusDe(r) === "F"), ev = L.reduce((s, r) => s + r.valor, 0), fv = f.reduce((s, r) => s + r.valor, 0);
+    return { n: L.length, f: f.length, fv, q: L.length ? f.length / L.length * 100 : null, v: ev ? fv / ev * 100 : null }; };
+  const p0 = v => v == null ? "—" : fmtNum(Math.round(v)) + "%";
+  const cel = (a, eq) => `<td class="hv"><b>${p0(a)}</b><small>eq. ${p0(eq)}</small></td>`;
+  const lin = (rot, sub, L, LE) => { const a = conta(L), e = conta(LE);
+    return `<tr><td><div class="cli" style="font-weight:600">${rot}</div><div class="mt">${a.n ? `${a.f} de ${a.n} · ${brl(a.fv)}` : "sem orçamentos"}${sub ? " · " + sub : ""}</div></td>${cel(a.q, e.q)}${cel(a.v, e.v)}</tr>`; };
+  const pers = [["dia", "Hoje"], ["semana", "Semana"], ["quinzena", "Quinzena"], ["mes", "Mês"]];
+  const ref = refData(), datas = todos.map(r => r.data).filter(Boolean).sort(), ini = datas[0] || hojeStr(ref);
+  const meses = []; for (let k = 0; k < 12; k++) { const d = new Date(ref.getFullYear(), ref.getMonth() - k, 1), ym = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); if (ym < ini.slice(0, 7)) break; meses.push({ ym, rot: MESES[d.getMonth()] + "/" + String(d.getFullYear()).slice(2), parcial: ym + "-01" < ini }); }
+  const cab = `<tr><td></td><td class="hv"><small>Qtd</small></td><td class="hv"><small>Valor</small></td></tr>`;
+  $("#det-title").textContent = nomeProprio(rca);
+  $("#det-sub").innerHTML = "Histórico de conversão · <span style=\"color:var(--muted)\">eq. = média da equipe</span>";
+  $("#det-kv").innerHTML = "";
+  $("#det-extra").innerHTML = `<h4 class="label" style="margin:4px 0 4px">Por período</h4><table class="hist">${cab}${pers.map(([p, n]) => lin(n, "", meus.filter(r => noPeriodo(r, p)), todos.filter(r => noPeriodo(r, p)))).join("")}</table>
+    <h4 class="label" style="margin:16px 0 4px">Por mês</h4><table class="hist">${cab}${meses.map(m => lin(m.rot, m.parcial ? `a partir de ${fmtData(ini)}` : "", meus.filter(r => r.data.slice(0, 7) === m.ym), todos.filter(r => r.data.slice(0, 7) === m.ym))).join("")}</table>`;
+  const ab = meus.filter(r => statusDe(r) === "L").sort((a, b) => b.valor - a.valor), tot = ab.reduce((s, r) => s + r.valor, 0);
+  $("#det-itens").previousElementSibling.textContent = `Em aberto (${ab.length})`;
+  $("#det-itens").innerHTML = ab.length ? ab.map(r => { const da = diasAberto(r);
+    return `<tr class="orc" data-orc="${esc(r.num)}" role="button"><td><div class="cli">${r.cliente_cod ? `<span style="color:var(--muted);font-weight:400">${esc(r.cliente_cod)} · </span>` : ""}${esc(r.cliente)}</div><div class="mt">#${esc(r.num)} · ${fmtData(r.data)}${r.hora ? ` às ${esc(r.hora)}` : ""} · ${da === 0 ? "aberto hoje" : da === 1 ? "1 dia em aberto" : da + " dias em aberto"}</div></td><td class="v">${brl2(r.valor)} <span class="chev">›</span></td></tr>`; }).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(tot)}</td></tr>` : `<tr><td class="empty">Nenhum orçamento em aberto.</td></tr>`;
+  if (!$("#det").open) $("#det").showModal();
+  $("#det .sheet-b").scrollTop = 0;
+}
 function abrirOrcs(cfg) {
-  ORCS_ABERTA = cfg; const todas = cfg.lista.slice().sort((a, b) => b.valor - a.valor);
+  ORCS_ABERTA = cfg; DET_BACK = () => abrirOrcs(cfg); const todas = cfg.lista.slice().sort((a, b) => b.valor - a.valor);
   const L = cfg.rca ? todas.filter(r => r.rca === cfg.rca) : todas, tot = L.reduce((s, r) => s + r.valor, 0);
   $("#det-title").textContent = cfg.titulo;
   $("#det-sub").innerHTML = `${L.length} orçamento${L.length === 1 ? "" : "s"} · <b>${brl2(tot)}</b>${cfg.rca ? ` · só ${esc(nomeProprio(primeiroNome(cfg.rca)))} · <a href="#" data-rca="" style="color:var(--s1);text-decoration:none;font-weight:600">ver todas</a>` : ""}`;
@@ -872,7 +899,7 @@ function renderRankingConv(L, diretos) {
     return `<div class="vsub" style="margin-top:2px">Nesse caso estaria em <b style="color:var(--ink)">${p0(hip)} da meta até hoje</b> (${brl(v.valor + extra)} de ${brl(m)}) · hoje está em ${p0(hoje)}</div>`; };
   const est = x => { if (mv == null || !x.emitV) return ""; const e = x.emitV * mv / 100, d = x.fatV - e;
     return `<div class="vsub" style="margin-top:4px">Na média da equipe (${p0(mv)} do valor) seriam <b style="color:var(--ink)">${brl(e)}</b> · ${Math.abs(d) < 0.5 ? "na média" : d > 0 ? `<span style="color:var(--good);font-weight:600">${brl(d)} acima</span>` : `<span style="color:var(--bad);font-weight:600">${brl(-d)} abaixo</span>`}</div>${metaHip(x, e - x.fatV)}`; };
-  const linha = (x, i) => `<div class="vrow"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(nomeProprio(x.rca))}</span><span class="vsub" style="margin:0">${x.fat} de ${pl(x.emit, "orçamento", "orçamentos")}</span></div>
+  const linha = (x, i) => `<div class="vrow" data-vend="${esc(x.rca)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(nomeProprio(x.rca))} <span style="color:var(--s1);font-weight:400">›</span></span><span class="vsub" style="margin:0">${x.fat} de ${pl(x.emit, "orçamento", "orçamentos")}</span></div>
     <div style="margin-top:10px;display:grid;gap:6px">${barra("Qtd", cq(x), mq)}${barra("Valor", cvl(x), mv)}</div>
     <div class="vsub"><b style="color:var(--ink)">${brl(x.fatV)}</b> convertidos${x.ab ? ` · ${brl(x.abV)} em aberto (${x.ab})` : ""}${x.pe ? ` · <span style="color:var(--bad)">${brl(x.peV)} perdidos (${x.pe})</span>` : ""}</div>
     ${est(x)}
@@ -945,10 +972,11 @@ $("#pa-seg").addEventListener("click", e => { const b = e.target.closest("button
 $("#pa-lista").addEventListener("click", e => { const tr = e.target.closest("tr[data-ped]"); if (tr) abrirPed(tr.dataset.ped); });
 const filtraRca = e => { const d = e.target.closest("[data-rca]"); if (!d || !ORCS_ABERTA || !$("#det-kv .vsel")) return; e.preventDefault(); const k = d.dataset.rca; abrirOrcs({ ...ORCS_ABERTA, rca: k && ORCS_ABERTA.rca !== k ? k : null }); };
 $("#det-kv").addEventListener("click", filtraRca); $("#det-sub").addEventListener("click", filtraRca);
+$("#o-rank").addEventListener("click", e => { const d = e.target.closest("[data-vend]"); if (d) abrirVend(d.dataset.vend); });
 $("#o-rank-geral").addEventListener("click", e => { const d = e.target.closest("[data-st]"); if (!d) return; const st = d.dataset.st;
   abrirOrcs({ lista: CONV_LISTAS[st] || [], titulo: ({ F: "Orçamentos convertidos", L: "Orçamentos em aberto", P: "Orçamentos perdidos" })[st] + " " + NOMEP[OPERIODO] }); });
-$("#det-itens").addEventListener("click", e => { const tr = e.target.closest("tr.orc[data-orc]"); if (!tr) return; const cfg = ORCS_ABERTA; abrirOrc(tr.dataset.orc);
-  const a = document.createElement("a"); a.href = "#"; a.textContent = "‹ Voltar"; a.style.cssText = "color:var(--s1);text-decoration:none;font-weight:600;margin-right:10px"; a.addEventListener("click", ev => { ev.preventDefault(); abrirOrcs(cfg); }); $("#det-sub").prepend(a); });
+$("#det-itens").addEventListener("click", e => { const tr = e.target.closest("tr.orc[data-orc]"); if (!tr) return; const volta = DET_BACK; abrirOrc(tr.dataset.orc);
+  const a = document.createElement("a"); a.href = "#"; a.textContent = "‹ Voltar"; a.style.cssText = "color:var(--s1);text-decoration:none;font-weight:600;margin-right:10px"; a.addEventListener("click", ev => { ev.preventDefault(); if (volta) volta(); }); $("#det-sub").prepend(a); });
 $("#c-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; CORDEM = b.dataset.c; store("vendas_cordem", CORDEM); if (CONV_ARGS) renderRankingConv(...CONV_ARGS); });
 $("#card-hoje").addEventListener("click", () => abrirNotas(hojeStr(refData())));
 $("#card-ontem").addEventListener("click", () => { if (ONTEM) abrirNotas(ONTEM); });
