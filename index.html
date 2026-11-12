@@ -669,7 +669,8 @@ function renderAlerta(d) {
   const el = $("#alerta"); const agora = new Date(); const dt = new Date(d.atualizado_em); let msg = "";
   const min = isNaN(dt) ? null : Math.round((agora - dt) / 60000);
   const comercial = agora.getDay() >= 1 && agora.getDay() <= 5 && agora.getHours() >= 8 && agora.getHours() < 19;
-  if (d.ultimo_erro && agora - new Date(d.ultimo_erro.quando) < 3 * 3600e3) msg = `<b>⚠ Falha na leitura do Winthor</b> às ${new Date(d.ultimo_erro.quando).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}: <span style="font-family:monospace;font-size:12px">${esc(d.ultimo_erro.msg)}</span>. Mostrando a última leitura boa.`;
+  // só é falha de leitura se o erro for mais novo que os dados (erro logo após gravar os dados não afeta o que está na tela)
+  if (d.ultimo_erro && agora - new Date(d.ultimo_erro.quando) < 3 * 3600e3 && (isNaN(dt) || new Date(d.ultimo_erro.quando) - dt > 60e3)) msg = `<b>⚠ Falha na leitura do Winthor</b> às ${new Date(d.ultimo_erro.quando).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}: <span style="font-family:monospace;font-size:12px">${esc(d.ultimo_erro.msg)}</span>. Mostrando a última leitura boa.`;
   else if (min != null && min > 20 && comercial) msg = `<b>⚠ Dados desatualizados</b> — última leitura do Winthor há ${min} min. Em horário comercial isso indica que o extrator parou.`;
   el.hidden = !msg; el.innerHTML = msg;
 }
