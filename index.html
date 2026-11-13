@@ -743,12 +743,13 @@ function linhaItem(i) {
   return `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}${m != null ? ` · custo ${brl2(i.custo)}` : ""}</div></td>
     <td class="v">${brl2(i.total ?? i.qtd * i.unitario)}${m != null ? `<div class="imarg${m < 10 ? " neg" : ""}">${pct1(m)}</div>` : ""}</td></tr>`;
 }
-function totItens(itens, rotulo) {
+function totItens(itens, rotulo, cab) {
   const soma = itens.reduce((s, i) => s + (i.total ?? i.qtd * i.unitario), 0);
   const com = itens.filter(i => margItem(i) != null);
   const v = com.reduce((s, i) => s + i.qtd * i.unitario, 0), c = com.reduce((s, i) => s + i.qtd * i.custo, 0);
   const m = v ? (v - c) / v * 100 : null;
-  return `<tr class="tot"><td>${rotulo}${m != null ? `<div class="mt" style="font-weight:400">lucro ${brl2(v - c)}${com.length < itens.length ? ` · ${itens.length - com.length} sem custo` : ""}</div>` : ""}</td><td class="v">${brl2(soma)}${m != null ? `<div class="imarg${m < 10 ? " neg" : ""}">${pct1(m)}</div>` : ""}</td></tr>`;
+  return `<tr class="tot"><td>${rotulo}${m != null ? `<div class="mt" style="font-weight:400">lucro ${brl2(v - c)}${com.length < itens.length ? ` · ${itens.length - com.length} sem custo` : ""}</div>` : ""}</td><td class="v">${brl2(soma)}${m != null ? `<div class="imarg${m < 10 ? " neg" : ""}">${pct1(m)}</div>` : ""}</td></tr>`
+    + (m != null && cab && cab.valor - soma > 0.05 && cab.perc != null ? `<tr><td colspan="2" class="mt" style="border:0;padding-top:6px">O valor do orçamento (${brl2(cab.valor)}) tem ${brl2(cab.valor - soma)} além dos itens. O "% Lucro" de ${fmtNum(cab.perc)}% lá em cima conta essa diferença como receita; a margem aqui considera só os produtos.</td></tr>` : "");
 }
 function abrirOrc(num) {
   const r = (DATA.orcamentos.lista || []).find(x => String(x.num) === String(num)); if (!r) return;
@@ -775,7 +776,7 @@ function abrirOrc(num) {
     $("#det-extra").innerHTML = `<h4 class="label" style="margin:14px 0 4px">Últimas compras</h4><table>${uc.length ? uc.map(n => `<tr><td><div class="cli">${fmtDataAno(n.data)} · NF ${esc(n.nf ?? "—")}</div><div class="mt">${esc(n.cond_pagto || "—")}</div></td><td class="v">${brl2(n.valor)}</td></tr>`).join("") : `<tr><td class="empty">Sem compras registradas.</td></tr>`}</table>`;
   } else $("#det-extra").innerHTML = "";
   $("#det-itens").previousElementSibling.textContent = "Itens";
-  $("#det-itens").innerHTML = itens.length ? itens.map(linhaItem).join("") + totItens(itens, "Total dos itens")
+  $("#det-itens").innerHTML = itens.length ? itens.map(linhaItem).join("") + totItens(itens, "Total dos itens", { valor: r.valor, perc: r.perc_lucro })
     : `<tr><td class="empty">Itens não disponíveis.</td></tr>`;
   $("#det").showModal();
 }
