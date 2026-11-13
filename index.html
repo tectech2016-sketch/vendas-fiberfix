@@ -560,17 +560,21 @@ function render(d) {
   const pm1 = x => x.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
   const lucro = v => { const x = lucV[String(v.nome || "").toUpperCase()]; if (!x || !x.v) return ""; const m = (x.v - x.c) / x.v * 100;
     return `<div class="vsub" style="margin-top:3px">Lucro bruto <b style="color:var(--ink)">${brl(x.v - x.c)}</b> · margem <b style="color:${m < 10 ? "var(--bad)" : "var(--ink)"}">${pm1(m)}</b></div>`; };
+  // comissão por liquidez (título × % de comissão gravado no Winthor): a vencer, vencida e liquidada no mês
+  const comV = {}; ((DATA && DATA.comissao && DATA.comissao.por_vendedor) || []).forEach(c => comV[c.codusur] = c);
+  const comis = v => { const c = comV[v.codusur]; if (!c || !(v.meta > 0) && !(c.a_vencer >= 0.5 || c.liquidada_mes >= 0.5)) return "";
+    return `<div class="vsub" style="margin-top:3px">Comissão a vencer <b style="color:var(--ink)">${brl(c.a_vencer)}</b>${c.vencida >= 0.5 ? ` · <span style="color:var(--bad);font-weight:600">${brl(c.vencida)} em títulos vencidos</span>` : ""} · liquidada no mês <b style="color:var(--ink)">${brl(c.liquidada_mes)}</b></div>`; };
   const linha = (v, i) => {
     const tk = brl(v.pedidos ? v.valor / v.pedidos : null);
     if (!(v.meta > 0)) return `<div class="vrow" data-vnome="${esc(v.nome)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome">${esc(v.nome)} <span style="color:var(--s1);font-weight:400">›</span></span><b class="vval">${brl(v.valor)}</b></div>
       <div class="vtrack"><div style="width:${(v.valor / vmax * 100).toFixed(1)}%;background:var(--axis)"></div></div>
-      <div class="vsub">${v.pedidos} pedido${v.pedidos === 1 ? "" : "s"} · ticket ${tk}${cmp(v)}</div>${lucro(v)}</div>`;
+      <div class="vsub">${v.pedidos} pedido${v.pedidos === 1 ? "" : "s"} · ticket ${tk}${cmp(v)}</div>${lucro(v)}${comis(v)}</div>`;
     const at = v.valor / v.meta * 100, esp = v.meta_ate_hoje || 0, dif = v.valor - esp, ok = dif >= 0;
     const pe = Math.min(100, esp / v.meta * 100);
     return `<div class="vrow" data-vnome="${esc(v.nome)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(v.nome)} <span style="color:var(--s1);font-weight:400">›</span></span>${esp ? `<span class="mpill ${ok ? "ok" : "late"}">${ok ? "▲" : "▼"} ${brl(Math.abs(dif))}</span>` : ""}</div>
       <div class="vtop" style="margin-top:4px"><b class="vval">${brl(v.valor)}</b><span class="vsub" style="margin:0"><b style="color:var(--ink)">${p1(at)}</b> de ${brl(v.meta)}</span></div>
       <div class="vtrack"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--s1)"}"></div>${esp ? `<i style="left:${pe.toFixed(1)}%"></i>` : ""}</div>
-      <div class="vsub">${v.pedidos} pedidos · ticket ${tk}${cmp(v)}</div>${lucro(v)}</div>`;
+      <div class="vsub">${v.pedidos} pedidos · ticket ${tk}${cmp(v)}</div>${lucro(v)}${comis(v)}</div>`;
   };
   $("#v-rank").innerHTML = com.length || sem.length ? com.map(linha).join("") : `<div class="empty">Sem dados.</div>`;
   $("#v-canais-wrap").hidden = !sem.length; $("#v-canais").innerHTML = sem.map(linha).join("");
@@ -587,7 +591,8 @@ function render(d) {
       <div class="mstats" style="margin-top:14px"><div><span>No ritmo</span><b>${nr} de ${com.length}</b><small>vendedoras</small></div>
         <div><span>Faltam</span><b>${brl(falta)}</b><small>${fmtNum(Math.round(falta / f.meta_mes * 100))}% da meta</small></div>
         <div><span>Precisa por dia</span><b>${restam > 0 ? brl(falta / restam) : "—"}</b><small>${restam} dias úteis</small></div></div>${(() => { const t = Object.values(lucV).reduce((q, x) => ({ v: q.v + x.v, c: q.c + x.c }), { v: 0, c: 0 }); if (!t.v) return ""; const m = (t.v - t.c) / t.v * 100;
-        return `<div class="vsub" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--grid)">Lucro bruto no mês <b style="color:var(--ink)">${brl(t.v - t.c)}</b> · margem <b style="color:${m < 10 ? "var(--bad)" : "var(--ink)"}">${pm1(m)}</b> <span style="color:var(--muted)">(com os canais)</span></div>`; })()}`;
+        return `<div class="vsub" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--grid)">Lucro bruto no mês <b style="color:var(--ink)">${brl(t.v - t.c)}</b> · margem <b style="color:${m < 10 ? "var(--bad)" : "var(--ink)"}">${pm1(m)}</b> <span style="color:var(--muted)">(com os canais)</span></div>`; })()}${(() => { const L = Object.values(comV); if (!L.length) return ""; const t = k => L.reduce((q, c) => q + (c[k] || 0), 0);
+        return `<div class="vsub" style="margin-top:6px">Comissão a vencer <b style="color:var(--ink)">${brl(t("a_vencer"))}</b>${t("vencida") >= 0.5 ? ` · <span style="color:var(--bad);font-weight:600">${brl(t("vencida"))} em títulos vencidos</span>` : ""} · liquidada no mês <b style="color:var(--ink)">${brl(t("liquidada_mes"))}</b></div>`; })()}`;
   } else eq.hidden = true;
 }
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -870,7 +875,13 @@ function abrirVendFat(nome) {
   const dl = (a, b) => { if (!(b > 0)) return ""; const p = (a - b) / b * 100; return ` <span style="color:${p >= 0 ? "var(--good)" : "var(--bad)"};font-weight:600">${p >= 0 ? "▲" : "▼"} ${fmtPct(p)}</span>`; };
   $("#det-title").textContent = nome;
   $("#det-sub").innerHTML = "Comparativo mês a mês · em clientes, <span style=\"color:var(--good);font-weight:600\">verde</span> acima da média da equipe, <span style=\"color:var(--bad);font-weight:600\">vermelho</span> abaixo";
-  $("#det-kv").innerHTML = "";
+  $("#det-kv").innerHTML = (() => { const pv = ((DATA.faturamento || {}).por_vendedor || []).find(x => x.nome === nome), c = pv && ((DATA.comissao || {}).por_vendedor || []).find(x => x.codusur === pv.codusur); if (!c) return "";
+    const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`, mm = ym => MESES[+ym.slice(5) - 1] + "/" + ym.slice(2, 4);
+    return `<div class="kv" style="grid-column:1/-1"><span style="font-weight:600;color:var(--ink)">Comissão · paga na liquidez</span><b></b></div>`
+      + kv("Liquidada no mês", `${brl2(c.liquidada_mes)} <small style="font-weight:400;color:var(--muted)">sobre ${brl(c.recebido_mes)} recebidos</small>`) + kv("Liquidada no mês anterior", brl2(c.liquidada_mes_anterior))
+      + kv("A vencer", `${brl2(c.a_vencer)} <small style="font-weight:400;color:var(--muted)">sobre ${brl(c.a_vencer_titulos)} em títulos</small>`)
+      + kv("Em títulos vencidos", c.vencida >= 0.005 ? `<span class="luc-bad">${brl2(c.vencida)}</span> <small style="font-weight:400;color:var(--muted)">sobre ${brl(c.vencida_titulos)}</small>` : "R$ 0,00")
+      + ((c.por_mes || []).length ? kv("A vencer por mês", c.por_mes.map(x => `${mm(x.mes)} ${brl(x.valor)}`).join(" · ")) : ""); + `<div style="grid-column:1/-1;height:8px"></div>`; })();
   $("#det-extra").innerHTML = meses.length ? meses.map((m, i) => { const ant = meses[i + 1];
     return `<div class="vrow" style="${i ? "" : "border-top:0;padding-top:4px"}"><div class="vtop"><span class="vnome">${m.rot}${m.atual ? ` <small style="font-weight:400;color:var(--muted);font-size:12px">até dia ${dia}</small>` : ""}</span><b class="vval">${brl(m.r.v)}</b></div>
       <div class="vtrack"><div style="width:${(m.r.v / mx * 100).toFixed(1)}%;background:var(--ink2)"></div></div>
