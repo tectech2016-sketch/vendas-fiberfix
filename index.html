@@ -163,6 +163,7 @@ dialog.sheet:not([open]){display:none}
 .sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 16px 10px;border-bottom:1px solid var(--grid)}
 .sheet-b{overflow:auto;padding:4px 16px calc(16px + env(safe-area-inset-bottom))}
 tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
+.imarg{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:2px}.imarg.neg{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -643,7 +644,7 @@ function abrirPed(num) {
     return `<tr><td><div class="cli" style="${t ? "" : "color:var(--muted)"}">${n}</div>${dur != null ? `<div class="mt">+${dur < 60 ? dur + " min" : Math.floor(dur / 60) + " h " + (dur % 60) + " min"} desde a etapa anterior</div>` : ""}</td><td class="v">${t ? hhmm(t) : (n.startsWith("Liberado direto") ? "✓" : "—")}</td></tr>`; }).join("")}</table>`;
   $("#det-itens").previousElementSibling.textContent = "Itens";
   const it = p.itens || [];
-  $("#det-itens").innerHTML = it.length ? it.map(i => `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}</div></td><td class="v">${brl2(i.total)}</td></tr>`).join("") + `<tr class="tot"><td>Total</td><td class="v">${brl2(it.reduce((s, i) => s + i.total, 0))}</td></tr>` : `<tr><td class="empty">Itens não disponíveis.</td></tr>`;
+  $("#det-itens").innerHTML = it.length ? it.map(linhaItem).join("") + totItens(it, "Total") : `<tr><td class="empty">Itens não disponíveis.</td></tr>`;
   $("#det").showModal(); $("#det .sheet-b").scrollTop = 0;
 }
 let MPERIODO = load("vendas_mperiodo") || "mes";
@@ -734,6 +735,21 @@ function renderLista() {
         <div class="mt chev">${r.nf ? "NF " + esc(r.nf) : (r.itens || []).length + " itens"} ›</div></td></tr>`).join("")
     : `<tr><td class="empty">Nenhum orçamento.</td></tr>`;
 }
+// margem por produto: (preço − custo) ÷ preço, com o custo unitário que o extrator envia em cada item
+const pct1 = v => v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+const margItem = i => i.custo != null && i.custo > 0 && i.unitario > 0 ? (i.unitario - i.custo) / i.unitario * 100 : null;
+function linhaItem(i) {
+  const m = margItem(i);
+  return `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}${m != null ? ` · custo ${brl2(i.custo)}` : ""}</div></td>
+    <td class="v">${brl2(i.total ?? i.qtd * i.unitario)}${m != null ? `<div class="imarg${m < 10 ? " neg" : ""}">${pct1(m)}</div>` : ""}</td></tr>`;
+}
+function totItens(itens, rotulo) {
+  const soma = itens.reduce((s, i) => s + (i.total ?? i.qtd * i.unitario), 0);
+  const com = itens.filter(i => margItem(i) != null);
+  const v = com.reduce((s, i) => s + i.qtd * i.unitario, 0), c = com.reduce((s, i) => s + i.qtd * i.custo, 0);
+  const m = v ? (v - c) / v * 100 : null;
+  return `<tr class="tot"><td>${rotulo}${m != null ? `<div class="mt" style="font-weight:400">lucro ${brl2(v - c)}${com.length < itens.length ? ` · ${itens.length - com.length} sem custo` : ""}</div>` : ""}</td><td class="v">${brl2(soma)}${m != null ? `<div class="imarg${m < 10 ? " neg" : ""}">${pct1(m)}</div>` : ""}</td></tr>`;
+}
 function abrirOrc(num) {
   const r = (DATA.orcamentos.lista || []).find(x => String(x.num) === String(num)); if (!r) return;
   const itens = r.itens || [];
@@ -759,8 +775,7 @@ function abrirOrc(num) {
     $("#det-extra").innerHTML = `<h4 class="label" style="margin:14px 0 4px">Últimas compras</h4><table>${uc.length ? uc.map(n => `<tr><td><div class="cli">${fmtDataAno(n.data)} · NF ${esc(n.nf ?? "—")}</div><div class="mt">${esc(n.cond_pagto || "—")}</div></td><td class="v">${brl2(n.valor)}</td></tr>`).join("") : `<tr><td class="empty">Sem compras registradas.</td></tr>`}</table>`;
   } else $("#det-extra").innerHTML = "";
   $("#det-itens").previousElementSibling.textContent = "Itens";
-  $("#det-itens").innerHTML = itens.length ? itens.map(i => `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}</div></td>
-    <td class="v">${brl2(i.total ?? i.qtd * i.unitario)}</td></tr>`).join("") + `<tr class="tot"><td>Total dos itens</td><td class="v">${brl2(soma)}</td></tr>`
+  $("#det-itens").innerHTML = itens.length ? itens.map(linhaItem).join("") + totItens(itens, "Total dos itens")
     : `<tr><td class="empty">Itens não disponíveis.</td></tr>`;
   $("#det").showModal();
 }
@@ -799,8 +814,7 @@ function abrirNota(nf, data, per) {
   $("#det-extra").innerHTML = "";
   $("#det-kv").innerHTML = campo("Vendedora", esc(n.rca)) + campo("Pedido", n.pedido ? esc(n.pedido) : "—") + campo("Plano de pagamento", n.cond_pagto ? esc(n.cond_pagto) : null) + campo("Orçamento", n.orcamento ? esc(n.orcamento) : "direto") + campo("Valor da nota", brl2(n.valor));
   $("#det-itens").previousElementSibling.textContent = "Itens";
-  $("#det-itens").innerHTML = itens.length ? itens.map(i => `<tr><td><div class="cli">${esc(i.descricao)}</div><div class="mt">cód. ${esc(i.codigo)} · ${fmtQtd(i.qtd)} × ${brl2(i.unitario)}</div></td>
-    <td class="v">${brl2(i.total ?? i.qtd * i.unitario)}</td></tr>`).join("") + `<tr class="tot"><td>Total dos itens</td><td class="v">${brl2(soma)}</td></tr>`
+  $("#det-itens").innerHTML = itens.length ? itens.map(linhaItem).join("") + totItens(itens, "Total dos itens")
     : `<tr><td class="empty">Itens não disponíveis.</td></tr>`;
   $("#det .sheet-b").scrollTop = 0;
 }
