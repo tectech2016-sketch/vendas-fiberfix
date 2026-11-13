@@ -554,17 +554,23 @@ function render(d) {
   const periodoAnt = () => { const r = refData(); const a = new Date(r.getFullYear(), r.getMonth() - 1, 1); const ult = new Date(r.getFullYear(), r.getMonth(), 0).getDate(); return `1–${Math.min(r.getDate(), ult)}/${MESES[a.getMonth()]}`; };
   const cmp = v => { const b = v.valor_mes_anterior_mesmo_periodo; if (b == null || !(b > 0)) return "";
     const p = pct(v.valor, b); return ` · <span style="color:${p >= 0 ? "var(--good)" : "var(--bad)"}">${p >= 0 ? "▲" : "▼"} ${fmtPct(p)}</span> vs. ${periodoAnt()}`; };
+  // lucro bruto do mês por vendedora: soma (valor − custo) das notas do mês, mesma base do card de margem
+  const lucV = {}; { const r0 = refData(), ym0 = r0.getFullYear() + "-" + String(r0.getMonth() + 1).padStart(2, "0");
+    (f.notas_mes || []).forEach(n => { if (n.custo == null || !String(n.data).startsWith(ym0)) return; const k = String(n.rca || "").toUpperCase(); const o_ = lucV[k] || (lucV[k] = { v: 0, c: 0 }); o_.v += n.valor; o_.c += n.custo; }); }
+  const pm1 = x => x.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+  const lucro = v => { const x = lucV[String(v.nome || "").toUpperCase()]; if (!x || !x.v) return ""; const m = (x.v - x.c) / x.v * 100;
+    return `<div class="vsub" style="margin-top:3px">Lucro bruto <b style="color:var(--ink)">${brl(x.v - x.c)}</b> · margem <b style="color:${m < 10 ? "var(--bad)" : "var(--ink)"}">${pm1(m)}</b></div>`; };
   const linha = (v, i) => {
     const tk = brl(v.pedidos ? v.valor / v.pedidos : null);
     if (!(v.meta > 0)) return `<div class="vrow" data-vnome="${esc(v.nome)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome">${esc(v.nome)} <span style="color:var(--s1);font-weight:400">›</span></span><b class="vval">${brl(v.valor)}</b></div>
       <div class="vtrack"><div style="width:${(v.valor / vmax * 100).toFixed(1)}%;background:var(--axis)"></div></div>
-      <div class="vsub">${v.pedidos} pedido${v.pedidos === 1 ? "" : "s"} · ticket ${tk}${cmp(v)}</div></div>`;
+      <div class="vsub">${v.pedidos} pedido${v.pedidos === 1 ? "" : "s"} · ticket ${tk}${cmp(v)}</div>${lucro(v)}</div>`;
     const at = v.valor / v.meta * 100, esp = v.meta_ate_hoje || 0, dif = v.valor - esp, ok = dif >= 0;
     const pe = Math.min(100, esp / v.meta * 100);
     return `<div class="vrow" data-vnome="${esc(v.nome)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(v.nome)} <span style="color:var(--s1);font-weight:400">›</span></span>${esp ? `<span class="mpill ${ok ? "ok" : "late"}">${ok ? "▲" : "▼"} ${brl(Math.abs(dif))}</span>` : ""}</div>
       <div class="vtop" style="margin-top:4px"><b class="vval">${brl(v.valor)}</b><span class="vsub" style="margin:0"><b style="color:var(--ink)">${p1(at)}</b> de ${brl(v.meta)}</span></div>
       <div class="vtrack"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--s1)"}"></div>${esp ? `<i style="left:${pe.toFixed(1)}%"></i>` : ""}</div>
-      <div class="vsub">${v.pedidos} pedidos · ticket ${tk}${cmp(v)}</div></div>`;
+      <div class="vsub">${v.pedidos} pedidos · ticket ${tk}${cmp(v)}</div>${lucro(v)}</div>`;
   };
   $("#v-rank").innerHTML = com.length || sem.length ? com.map(linha).join("") : `<div class="empty">Sem dados.</div>`;
   $("#v-canais-wrap").hidden = !sem.length; $("#v-canais").innerHTML = sem.map(linha).join("");
@@ -580,7 +586,8 @@ function render(d) {
       <div class="vtrack" style="height:12px;margin:12px 0 0"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--s1)"}"></div><i style="left:${pe.toFixed(1)}%;height:20px;top:-4px"></i></div>
       <div class="mstats" style="margin-top:14px"><div><span>No ritmo</span><b>${nr} de ${com.length}</b><small>vendedoras</small></div>
         <div><span>Faltam</span><b>${brl(falta)}</b><small>${fmtNum(Math.round(falta / f.meta_mes * 100))}% da meta</small></div>
-        <div><span>Precisa por dia</span><b>${restam > 0 ? brl(falta / restam) : "—"}</b><small>${restam} dias úteis</small></div></div>`;
+        <div><span>Precisa por dia</span><b>${restam > 0 ? brl(falta / restam) : "—"}</b><small>${restam} dias úteis</small></div></div>${(() => { const t = Object.values(lucV).reduce((q, x) => ({ v: q.v + x.v, c: q.c + x.c }), { v: 0, c: 0 }); if (!t.v) return ""; const m = (t.v - t.c) / t.v * 100;
+        return `<div class="vsub" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--grid)">Lucro bruto no mês <b style="color:var(--ink)">${brl(t.v - t.c)}</b> · margem <b style="color:${m < 10 ? "var(--bad)" : "var(--ink)"}">${pm1(m)}</b> <span style="color:var(--muted)">(com os canais)</span></div>`; })()}`;
   } else eq.hidden = true;
 }
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
