@@ -166,6 +166,7 @@ dialog.sheet:not([open]){display:none}
 .sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 16px 10px;border-bottom:1px solid var(--grid)}
 .sheet-b{overflow:auto;padding:4px 16px calc(16px + env(safe-area-inset-bottom))}
 tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
+.cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums} .cmp th{font-size:11px;font-weight:400;color:var(--muted);text-align:right;padding:8px 0 6px} .cmp td{font-size:13.5px;text-align:right;padding:9px 0;border-top:1px solid var(--grid);white-space:nowrap} .cmp th:first-child,.cmp td:first-child{text-align:left} .cmp td:first-child{font-weight:600} .cmp small{display:block;font-size:11px;color:var(--muted)}
 .imarg{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:2px}.imarg.neg{color:var(--bad)}
 </style>
 </head>
@@ -206,7 +207,9 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
           <div class="seg" id="m-seg"><button data-p="dia">Hoje</button><button data-p="semana">Semana</button><button data-p="quinzena">Quinzena</button><button data-p="mes">Mês</button></div></div>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px"><div class="hero" id="k-marg">—</div><span class="mpill" id="k-marg-pill"></span></div>
         <div class="mstats" id="k-marg-stats"></div></div>
+      <div class="card wide" id="card-frete" hidden></div>
     </div>
+    <div id="cmp-wrap" hidden><h2>Comparativo mensal <small id="cmp-sub"></small></h2><div class="card" id="cmp-tab" style="padding:8px 16px"></div></div>
     <div id="pa-wrap" hidden>
     <h2>Pedidos em andamento <small>rotina 336 · liberados e bloqueados</small></h2>
     <div class="card" style="margin-bottom:14px">
@@ -284,7 +287,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
 <script>
 // ===== Configuração =====
 const EMPCFG = window.EMP === "sol"
-  ? { nome: "Sol Nascente", app: "vendas_sol", pre: "sol_", semOrc: true, vend: "vendedor", vends: "vendedores", Vends: "Vendedores" }
+  ? { nome: "Sol Nascente", app: "vendas_sol", pre: "sol_", semOrc: true, frete: true, comparativo: true, vend: "vendedor", vends: "vendedores", Vends: "Vendedores" }
   : { nome: "FiberFix", app: "vendas", pre: "", semOrc: false, vend: "vendedora", vends: "vendedoras", Vends: "Vendedoras" };
 const DATA_BASE = "https://script.google.com/macros/s/AKfycbz3CLGSgvEKRoFI5FyTBDnnF3l-4v5pFx5rO_UyLZn1gr8AeSO0e78ugg60umRLcaNO/exec?app=" + EMPCFG.app;
 let PW_ATUAL = load("vendas_pw");
@@ -496,7 +499,7 @@ function render(d) {
   const nh = notasDoDia(hojeStr(isNaN(dt) ? hoje() : dt)); $("#k-hoje-sub").textContent = nh.length ? `${nh.length} nota${nh.length > 1 ? "s" : ""}` : (f.notas_mes ? "nenhuma nota ainda" : "");
   renderMeta(f);
   renderAndamento(d);
-  renderMargem();
+  renderMargem(); renderFrete();
   renderAlerta(d);
   { const nl = notasDoDia(hojeStr(isNaN(dt) ? hoje() : dt)); const v = nl.reduce((a, n) => a + n.valor, 0), c = nl.reduce((a, n) => a + (n.custo || 0), 0);
     $("#k-lb").textContent = nl.length ? brl(v - c) : "—";
@@ -668,6 +671,44 @@ function abrirPed(num) {
 }
 let MPERIODO = load("vendas_mperiodo") || "mes";
 const NOMEP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês", tri: "no trimestre" };
+// Frete sobre vendas (contas a pagar do Winthor, por competência) e comparativo mensal
+function renderFrete() {
+  const d = DATA || {}, f = d.faturamento || {}, fr = d.frete || {}, card = $("#card-frete"), wrap = $("#cmp-wrap");
+  const pmF = {}; (fr.por_mes || []).forEach(x => pmF[x.mes] = x);
+  const temFrete = EMPCFG.frete && (fr.por_mes || []).some(x => x.valor > 0);
+  const ref = refData(), ym = (y, m) => y + "-" + String(m + 1).padStart(2, "0"), ymA = ym(ref.getFullYear(), ref.getMonth());
+  const ant = new Date(ref.getFullYear(), ref.getMonth() - 1, 1), ymP = ym(ant.getFullYear(), ant.getMonth());
+  const pmV = {}; (f.por_mes || []).forEach(x => pmV[x.mes] = x.valor);
+  const p1 = x => x.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+  // no mês corrente o frete entra alguns dias depois da entrega: o % usa o faturado só até o último dia com frete lançado
+  const diaAte = fr.ate && fr.ate.startsWith(ymA) ? +fr.ate.slice(8) : null;
+  const fatAte = diaAte ? (f.por_dia || []).filter(x => x.dia <= diaAte).reduce((q, x) => q + x.valor, 0) : 0;
+  const frA = (pmF[ymA] || {}).valor || 0, pA = fatAte ? frA / fatAte * 100 : null;
+  const frP = (pmF[ymP] || {}).valor || 0, pP = pmV[ymP] ? frP / pmV[ymP] * 100 : null;
+  card.hidden = !temFrete;
+  if (temFrete) {
+    const dif = pA != null && pP != null ? pA - pP : null, ate = diaAte ? `${String(diaAte).padStart(2, "0")}/${String(ref.getMonth() + 1).padStart(2, "0")}` : "";
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="label" style="margin:0">Frete sobre vendas</div><span class="vsub" style="margin:0">${ate ? "lançado até " + ate : "sem frete lançado no mês"}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px"><div class="hero">${pA == null ? "—" : p1(pA)}</div>${dif == null ? "" : `<span class="mpill ${dif <= 0 ? "ok" : "late"}">${dif <= 0 ? "▼" : "▲"} ${p1(Math.abs(dif)).replace("%", "")} pts vs. mês anterior</span>`}</div>
+      <div class="mstats"><div><span>Frete no mês</span><b>${brl(frA)}</b><small>${(pmF[ymA] || {}).qtd || 0} pagamentos</small></div>
+        <div><span>Faturado</span><b>${brl(fatAte)}</b><small>${ate ? "até " + ate : ""}</small></div>
+        <div><span>Mês anterior</span><b>${pP == null ? "—" : p1(pP)}</b><small>${brl(frP)}</small></div></div>
+      ${(fr.por_parceiro || []).length ? `<div class="vsub" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--grid);line-height:1.7">${fr.por_parceiro.slice(0, 6).map(x => `${esc(primeiroNome(x.nome))} <b style="color:var(--ink)">${brl(x.valor)}</b> <span style="color:var(--muted)">(${x.qtd})</span>`).join(" · ")}</div>` : ""}`;
+  }
+  // comparativo mensal: faturado, margem e (quando há) frete
+  const cM = {}; ((d.hist_mensal || {}).fat || []).forEach(x => { const o = cM[x.mes] || (cM[x.mes] = { v: 0, c: 0 }); o.v += x.valor; o.c += x.custo || 0; });
+  const meses = Object.keys(pmV).filter(m => pmV[m] > 0 && cM[m]).sort().reverse().slice(0, 12);
+  wrap.hidden = !(EMPCFG.comparativo && meses.length > 1);
+  if (wrap.hidden) return;
+  $("#cmp-sub").textContent = temFrete ? "faturado, margem e frete" : "faturado e margem";
+  const lin = (m, i) => { const atual = m === ymA, v = pmV[m], mg = cM[m].v ? (cM[m].v - cM[m].c) / cM[m].v * 100 : null, fx = (pmF[m] || {}).valor || 0;
+    const pf = atual ? pA : (v ? fx / v * 100 : null), prev = meses[i + 1], dv = prev ? pct(v, pmV[prev]) : null;
+    return `<tr><td>${MESES[+m.slice(5) - 1]}/${m.slice(2, 4)}${atual ? `<small style="font-weight:400">até dia ${ref.getDate()}</small>` : ""}</td>
+      <td>${brl(v)}${dv == null || atual ? "" : `<small style="color:${dv >= 0 ? "var(--good)" : "var(--bad)"}">${dv >= 0 ? "▲" : "▼"} ${fmtPct(dv)}</small>`}</td>
+      <td>${mg == null ? "—" : p1(mg)}<small>${brl(cM[m].v - cM[m].c)}</small></td>
+      ${temFrete ? `<td>${pf == null ? "—" : p1(pf)}<small>${brl(fx)}</small></td><td>${mg == null || pf == null ? "—" : p1(mg - pf)}</td>` : ""}</tr>`; };
+  $("#cmp-tab").innerHTML = `<table class="cmp"><tr><th>Mês</th><th>Faturado</th><th>Margem</th>${temFrete ? "<th>Frete</th><th>Margem − frete</th>" : ""}</tr>${meses.map(lin).join("")}</table>`;
+}
 function renderMargem() {
   const card = $("#card-margem"); const ns = (DATA && DATA.faturamento.notas_mes) || [];
   if (!ns.some(n => n.custo != null)) { card.hidden = true; return; }
