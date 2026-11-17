@@ -599,7 +599,7 @@ function render(d) {
     eq.innerHTML = `<div class="label" style="margin:0">Equipe · faturado no mês</div><div class="hero" style="margin-top:8px">${brl(f.mes)}</div>
       <div class="mstats" style="margin-top:14px"><div><span>${EMPCFG.Vends}</span><b>${vs.filter(v => v.valor > 0).length}</b><small>com venda no mês</small></div>
         <div><span>Lucro bruto</span><b>${m == null ? "—" : brl(t.v - t.c)}</b><small>no mês</small></div>
-        <div><span>Margem</span><b style="color:${m != null && m < 10 ? "var(--bad)" : "var(--ink)"}">${m == null ? "—" : pm1(m)}</b><small>sem meta no Winthor</small></div></div>`; }
+        <div><span>Margem</span><b style="color:${m != null && m < 10 ? "var(--bad)" : "var(--ink)"}">${m == null ? "—" : pm1(m)}</b><small>no mês</small></div></div>`; }
   $("#v-rank-sub").textContent = `por ${EMPCFG.vend}${temMeta ? " · meta do Winthor" : " · sem meta cadastrada"}`;
 }
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -1027,7 +1027,7 @@ document.querySelectorAll("nav button").forEach(b => b.addEventListener("click",
   if (DATA) render(DATA); // redesenha gráficos da aba visível (largura)
 }));
 document.querySelector('nav button[data-tab="vend"]').lastChild.textContent = EMPCFG.Vends;
-if (EMPCFG.semOrc) document.querySelector('nav button[data-tab="orc"]').hidden = true;   // filial sem orçamentos no Winthor
+if (EMPCFG.semOrc) document.querySelector('nav button[data-tab="orc"]').style.display = "none";   // filial sem orçamentos no Winthor
 const lastTab = EMPCFG.semOrc && load("vendas_tab") === "orc" ? null : load("vendas_tab"); if (lastTab) document.querySelector(`nav button[data-tab="${lastTab}"]`)?.click();
 // Filtros
 $("#o-filtros").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; FILTRO = b.dataset.f; document.querySelectorAll("#o-filtros button").forEach(x => x.setAttribute("aria-pressed", x === b)); renderLista(); });
