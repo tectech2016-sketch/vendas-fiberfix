@@ -166,7 +166,7 @@ dialog.sheet:not([open]){display:none}
 .sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 16px 10px;border-bottom:1px solid var(--grid)}
 .sheet-b{overflow:auto;padding:4px 16px calc(16px + env(safe-area-inset-bottom))}
 tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
-.cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums} .cmp th{font-size:11px;font-weight:400;color:var(--muted);text-align:right;padding:8px 0 6px} .cmp td{font-size:13.5px;text-align:right;padding:9px 0;border-top:1px solid var(--grid);white-space:nowrap} .cmp th:first-child,.cmp td:first-child{text-align:left} .cmp td:first-child{font-weight:600} .cmp small{display:block;font-size:11px;color:var(--muted)}
+.cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums} .cmp th{font-size:11px;font-weight:400;color:var(--muted);text-align:right;padding:8px 0 6px 10px} .cmp td{font-size:13px;text-align:right;padding:9px 0 9px 10px;vertical-align:top;border-top:1px solid var(--grid);white-space:nowrap} .cmp th:first-child,.cmp td:first-child{text-align:left;padding-left:0} .cmp td:first-child{font-weight:600} .cmp small{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
 .imarg{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:2px}.imarg.neg{color:var(--bad)}
 </style>
 </head>
@@ -707,7 +707,7 @@ function renderFrete() {
       <td>${brl(v)}${dv == null || atual ? "" : `<small style="color:${dv >= 0 ? "var(--good)" : "var(--bad)"}">${dv >= 0 ? "▲" : "▼"} ${fmtPct(dv)}</small>`}</td>
       <td>${mg == null ? "—" : p1(mg)}<small>${brl(cM[m].v - cM[m].c)}</small></td>
       ${temFrete ? `<td>${pf == null ? "—" : p1(pf)}<small>${brl(fx)}</small></td><td>${mg == null || pf == null ? "—" : p1(mg - pf)}</td>` : ""}</tr>`; };
-  $("#cmp-tab").innerHTML = `<table class="cmp"><tr><th>Mês</th><th>Faturado</th><th>Margem</th>${temFrete ? "<th>Frete</th><th>Margem − frete</th>" : ""}</tr>${meses.map(lin).join("")}</table>`;
+  $("#cmp-tab").innerHTML = `<table class="cmp"><tr><th>Mês</th><th>Faturado</th><th>Margem</th>${temFrete ? "<th>Frete</th><th>Após frete</th>" : ""}</tr>${meses.map(lin).join("")}</table>`;
 }
 function renderMargem() {
   const card = $("#card-margem"); const ns = (DATA && DATA.faturamento.notas_mes) || [];
