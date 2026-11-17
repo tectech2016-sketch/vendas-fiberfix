@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Vendas FiberFix</title>
+<script>window.EMP = /\/sol(\/|$)/.test(location.pathname.replace(/[^/]*$/, "")) ? "sol" : "fx"; document.documentElement.dataset.emp = EMP; if (EMP === "sol") document.title = "Vendas Sol Nascente";</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
@@ -47,7 +48,7 @@
   --bg:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
   --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
   --s1:#ee0118; --s2:#52514e; --seq-lo:#f7a3aa;        /* vermelho FiberFix; cinza = comparação */
-  --good:#006300; --bad:#c40014; --warn:#fab219;
+  --good:#006300; --bad:#c40014; --warn:#fab219; --neg:var(--s1);
   --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 @media (prefers-color-scheme:dark){
@@ -56,6 +57,8 @@
     --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
     --s1:#ff3b4a; --s2:#a8a79e; --seq-lo:#7a1a22; --good:#0ca30c; --bad:#ff5c68;}
 }
+html[data-emp="sol"]{--s1:#0b7d86; --seq-lo:#9ed6da; --neg:var(--bad)}   /* Sol Nascente: turquesa; negativo segue vermelho */
+@media (prefers-color-scheme:dark){ html[data-emp="sol"]{--s1:#3cc4cc; --seq-lo:#135b61} }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-text-size-adjust:100%}
 body{padding:env(safe-area-inset-top) env(safe-area-inset-right) calc(72px + env(safe-area-inset-bottom)) env(safe-area-inset-left);min-height:100vh}
@@ -86,7 +89,7 @@ h2 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
 .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:6px 8px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .1s}
 .tip b{font-weight:600}
 .mpill{font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;white-space:nowrap}
-.mpill.ok{color:var(--good);background:color-mix(in srgb,var(--good) 13%,transparent)} .mpill.late{color:var(--s1);background:color-mix(in srgb,var(--s1) 12%,transparent)}
+.mpill.ok{color:var(--good);background:color-mix(in srgb,var(--good) 13%,transparent)} .mpill.late{color:var(--neg);background:color-mix(in srgb,var(--neg) 12%,transparent)}
 .mstats{display:grid;grid-template-columns:1fr 1fr 1fr;margin-top:14px;border-top:1px solid var(--grid);padding-top:12px}
 .mstats>div{padding:0 8px;border-left:1px solid var(--grid);min-width:0} .mstats>div:first-child{border:0;padding-left:0}
 .mstats span{display:block;font-size:11px;color:var(--muted)} .mstats b{display:block;font-size:15px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums} .mstats small{font-size:11px;color:var(--ink2)}
@@ -168,7 +171,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
 </head>
 <body>
 <header>
-  <div><h1 id="title">Vendas · FiberFix</h1><div class="sub" id="updated">—</div></div>
+  <div><h1 id="title">Vendas</h1><div class="sub" id="updated">—</div></div>
   <div style="display:flex;gap:6px">
     <button class="btn" id="refresh" aria-label="Atualizar">↻</button>
     <button class="btn" id="settings" aria-label="Configurar">⚙︎</button>
@@ -254,7 +257,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
 
   <section id="tab-vend" hidden>
     <div class="card" id="v-equipe" hidden style="margin-top:4px"></div>
-    <h2 style="margin-top:4px">Ranking do mês <small>por vendedora · meta do Winthor</small></h2>
+    <h2 style="margin-top:4px">Ranking do mês <small id="v-rank-sub">por vendedora · meta do Winthor</small></h2>
     <div class="card" id="v-rank" style="padding:4px 16px"></div>
     <div id="v-canais-wrap" hidden><h2>Canais <small>sem meta</small></h2><div class="card" id="v-canais" style="padding:4px 16px"></div></div>
   </section>
@@ -280,7 +283,10 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
 
 <script>
 // ===== Configuração =====
-const DATA_BASE = "https://script.google.com/macros/s/AKfycbz3CLGSgvEKRoFI5FyTBDnnF3l-4v5pFx5rO_UyLZn1gr8AeSO0e78ugg60umRLcaNO/exec?app=vendas";
+const EMPCFG = window.EMP === "sol"
+  ? { nome: "Sol Nascente", app: "vendas_sol", pre: "sol_", semOrc: true, vend: "vendedor", vends: "vendedores", Vends: "Vendedores" }
+  : { nome: "FiberFix", app: "vendas", pre: "", semOrc: false, vend: "vendedora", vends: "vendedoras", Vends: "Vendedoras" };
+const DATA_BASE = "https://script.google.com/macros/s/AKfycbz3CLGSgvEKRoFI5FyTBDnnF3l-4v5pFx5rO_UyLZn1gr8AeSO0e78ugg60umRLcaNO/exec?app=" + EMPCFG.app;
 let PW_ATUAL = load("vendas_pw");
 const DATA_URL_DEFAULT = "";          // preencher após publicar o Apps Script; o usuário também pode trocar em ⚙︎
 const REFRESH_MS = 5 * 60 * 1000;     // 5 min
@@ -365,8 +371,8 @@ function setDelta(el, p, label) {
   el.className = "delta " + (p >= 0 ? "up" : "down");
   el.innerHTML = `<b>${p >= 0 ? "▲" : "▼"} ${fmtPct(p)}</b> <span>${label}</span>`;
 }
-function store(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { } }
-function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function store(k, v) { k = EMPCFG.pre + k; try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { } }
+function load(k) { try { return localStorage.getItem(EMPCFG.pre + k); } catch (e) { return null; } }
 function hoje() { return new Date(); }
 
 // ===== Gráficos (SVG à mão) =====
@@ -549,7 +555,7 @@ function render(d) {
   const vs = [...(f.por_vendedor || [])].sort((a, b) => b.valor - a.valor);
   const vmax = Math.max(1, ...vs.map(v => v.valor));
   const temMeta = vs.some(v => v.meta > 0);
-  const com = vs.filter(v => v.meta > 0), sem = vs.filter(v => !(v.meta > 0));
+  const com = temMeta ? vs.filter(v => v.meta > 0) : vs, sem = temMeta ? vs.filter(v => !(v.meta > 0)) : [];
   const p1 = v => fmtNum(Math.round(v)) + "%";
   const periodoAnt = () => { const r = refData(); const a = new Date(r.getFullYear(), r.getMonth() - 1, 1); const ult = new Date(r.getFullYear(), r.getMonth(), 0).getDate(); return `1–${Math.min(r.getDate(), ult)}/${MESES[a.getMonth()]}`; };
   const cmp = v => { const b = v.valor_mes_anterior_mesmo_periodo; if (b == null || !(b > 0)) return "";
@@ -562,14 +568,14 @@ function render(d) {
     return `<div class="vsub" style="margin-top:3px">Lucro bruto <b style="color:var(--ink)">${brl(x.v - x.c)}</b> · margem <b style="color:${m < 10 ? "var(--bad)" : "var(--ink)"}">${pm1(m)}</b></div>`; };
   const linha = (v, i) => {
     const tk = brl(v.pedidos ? v.valor / v.pedidos : null);
-    if (!(v.meta > 0)) return `<div class="vrow" data-vnome="${esc(v.nome)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome">${esc(v.nome)} <span style="color:var(--s1);font-weight:400">›</span></span><b class="vval">${brl(v.valor)}</b></div>
-      <div class="vtrack"><div style="width:${(v.valor / vmax * 100).toFixed(1)}%;background:var(--axis)"></div></div>
+    if (!(v.meta > 0)) return `<div class="vrow" data-vnome="${esc(v.nome)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome">${temMeta ? "" : `<span class="vpos">${i + 1}</span>`}${esc(v.nome)} <span style="color:var(--s1);font-weight:400">›</span></span><b class="vval">${brl(v.valor)}</b></div>
+      <div class="vtrack"><div style="width:${(v.valor / vmax * 100).toFixed(1)}%;background:${temMeta ? "var(--axis)" : "var(--s1)"}"></div></div>
       <div class="vsub">${v.pedidos} pedido${v.pedidos === 1 ? "" : "s"} · ticket ${tk}${cmp(v)}</div>${lucro(v)}</div>`;
     const at = v.valor / v.meta * 100, esp = v.meta_ate_hoje || 0, dif = v.valor - esp, ok = dif >= 0;
     const pe = Math.min(100, esp / v.meta * 100);
     return `<div class="vrow" data-vnome="${esc(v.nome)}" role="button" style="cursor:pointer"><div class="vtop"><span class="vnome"><span class="vpos">${i + 1}</span>${esc(v.nome)} <span style="color:var(--s1);font-weight:400">›</span></span>${esp ? `<span class="mpill ${ok ? "ok" : "late"}">${ok ? "▲" : "▼"} ${brl(Math.abs(dif))}</span>` : ""}</div>
       <div class="vtop" style="margin-top:4px"><b class="vval">${brl(v.valor)}</b><span class="vsub" style="margin:0"><b style="color:var(--ink)">${p1(at)}</b> de ${brl(v.meta)}</span></div>
-      <div class="vtrack"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--s1)"}"></div>${esp ? `<i style="left:${pe.toFixed(1)}%"></i>` : ""}</div>
+      <div class="vtrack"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--neg)"}"></div>${esp ? `<i style="left:${pe.toFixed(1)}%"></i>` : ""}</div>
       <div class="vsub">${v.pedidos} pedidos · ticket ${tk}${cmp(v)}</div>${lucro(v)}</div>`;
   };
   $("#v-rank").innerHTML = com.length || sem.length ? com.map(linha).join("") : `<div class="empty">Sem dados.</div>`;
@@ -583,12 +589,18 @@ function render(d) {
     eq.hidden = false;
     eq.innerHTML = `<div class="vtop"><div class="label" style="margin:0">Equipe · meta do mês</div><span class="mpill ${ok ? "ok" : "late"}">${ok ? "▲ Adiantada" : "▼ Atrasada"} ${brl(Math.abs(dif))}</span></div>
       <div class="vtop" style="margin-top:8px;align-items:baseline"><div class="hero">${p1(at)}</div><span class="vsub" style="margin:0"><b style="color:var(--ink)">${brl(f.mes)}</b> de ${brl(f.meta_mes)}</span></div>
-      <div class="vtrack" style="height:12px;margin:12px 0 0"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--s1)"}"></div><i style="left:${pe.toFixed(1)}%;height:20px;top:-4px"></i></div>
-      <div class="mstats" style="margin-top:14px"><div><span>No ritmo</span><b>${nr} de ${com.length}</b><small>vendedoras</small></div>
+      <div class="vtrack" style="height:12px;margin:12px 0 0"><div style="width:${Math.min(100, at).toFixed(1)}%;background:${ok ? "var(--good)" : "var(--neg)"}"></div><i style="left:${pe.toFixed(1)}%;height:20px;top:-4px"></i></div>
+      <div class="mstats" style="margin-top:14px"><div><span>No ritmo</span><b>${nr} de ${com.length}</b><small>${EMPCFG.vends}</small></div>
         <div><span>Faltam</span><b>${brl(falta)}</b><small>${fmtNum(Math.round(falta / f.meta_mes * 100))}% da meta</small></div>
         <div><span>Precisa por dia</span><b>${restam > 0 ? brl(falta / restam) : "—"}</b><small>${restam} dias úteis</small></div></div>${(() => { const t = Object.values(lucV).reduce((q, x) => ({ v: q.v + x.v, c: q.c + x.c }), { v: 0, c: 0 }); if (!t.v) return ""; const m = (t.v - t.c) / t.v * 100;
         return `<div class="vsub" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--grid)">Lucro bruto no mês <b style="color:var(--ink)">${brl(t.v - t.c)}</b> · margem <b style="color:${m < 10 ? "var(--bad)" : "var(--ink)"}">${pm1(m)}</b> <span style="color:var(--muted)">(com os canais)</span></div>`; })()}`;
-  } else eq.hidden = true;
+  } else { const t = Object.values(lucV).reduce((q, x) => ({ v: q.v + x.v, c: q.c + x.c }), { v: 0, c: 0 }), m = t.v ? (t.v - t.c) / t.v * 100 : null;
+    eq.hidden = !(f.mes > 0);
+    eq.innerHTML = `<div class="label" style="margin:0">Equipe · faturado no mês</div><div class="hero" style="margin-top:8px">${brl(f.mes)}</div>
+      <div class="mstats" style="margin-top:14px"><div><span>${EMPCFG.Vends}</span><b>${vs.filter(v => v.valor > 0).length}</b><small>com venda no mês</small></div>
+        <div><span>Lucro bruto</span><b>${m == null ? "—" : brl(t.v - t.c)}</b><small>no mês</small></div>
+        <div><span>Margem</span><b style="color:${m != null && m < 10 ? "var(--bad)" : "var(--ink)"}">${m == null ? "—" : pm1(m)}</b><small>sem meta no Winthor</small></div></div>`; }
+  $("#v-rank-sub").textContent = `por ${EMPCFG.vend}${temMeta ? " · meta do Winthor" : " · sem meta cadastrada"}`;
 }
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 function renderMeses(f, now) {
@@ -688,7 +700,7 @@ function renderMeta(f) {
   card.hidden = PERIODO === "semana"; $("#lg-meta").hidden = false;
   const at = f.mes / f.meta_mes * 100, esp = f.meta_ate_hoje || 0, dif = f.mes - esp, ok = dif >= 0;
   const dec = f.dias_uteis_decorridos || 0, tot = f.dias_uteis_mes || 0, restam = tot - dec;
-  const falta = Math.max(0, f.meta_mes - f.mes), cor = ok ? "var(--good)" : "var(--s1)";
+  const falta = Math.max(0, f.meta_mes - f.mes), cor = ok ? "var(--good)" : "var(--neg)";
   const pill = $("#k-meta-pill"); pill.className = "mpill " + (ok ? "ok" : "late");
   pill.textContent = `${ok ? "▲ Adiantado" : "▼ Atrasado"} ${brl(Math.abs(dif))}${esp ? ` · ${fmtPct(dif / esp * 100)}` : ""}`;
   $("#k-meta-pct").textContent = fmtNum(Math.round(at)) + "%";
@@ -704,7 +716,7 @@ function renderMeta(f) {
     <div><span>Precisa por dia</span><b>${restam > 0 ? brl(falta / restam) : "—"}</b><small>${restam > 0 ? `${restam} dia${restam > 1 ? "s" : ""} út${restam > 1 ? "eis" : "il"}` : "último dia útil"}</small></div>
     <div><span>Média até agora</span><b>${media ? brl(media) : "—"}</b><small>${dec} de ${tot} dias</small></div>`;
   const proj = media && tot ? media * tot : null, va = proj && f.mes_anterior_total ? pct(proj, f.mes_anterior_total) : null;
-  $("#k-meta-hoje").innerHTML = proj ? `Nesse ritmo o mês fecha em <b style="color:${proj >= f.meta_mes ? "var(--good)" : "var(--s1)"}">${brl(proj)}</b> (${fmtNum(Math.round(proj / f.meta_mes * 100))}% da meta${va != null ? ` · ${fmtPct(va)} vs. mês anterior` : ""})` : "";
+  $("#k-meta-hoje").innerHTML = proj ? `Nesse ritmo o mês fecha em <b style="color:${proj >= f.meta_mes ? "var(--good)" : "var(--neg)"}">${brl(proj)}</b> (${fmtNum(Math.round(proj / f.meta_mes * 100))}% da meta${va != null ? ` · ${fmtPct(va)} vs. mês anterior` : ""})` : "";
 }
 function statusDe(r) {
   if (r.pos === "F") return "F";
@@ -1014,7 +1026,9 @@ document.querySelectorAll("nav button").forEach(b => b.addEventListener("click",
   store("vendas_tab", b.dataset.tab);
   if (DATA) render(DATA); // redesenha gráficos da aba visível (largura)
 }));
-const lastTab = load("vendas_tab"); if (lastTab) document.querySelector(`nav button[data-tab="${lastTab}"]`)?.click();
+document.querySelector('nav button[data-tab="vend"]').lastChild.textContent = EMPCFG.Vends;
+if (EMPCFG.semOrc) document.querySelector('nav button[data-tab="orc"]').hidden = true;   // filial sem orçamentos no Winthor
+const lastTab = EMPCFG.semOrc && load("vendas_tab") === "orc" ? null : load("vendas_tab"); if (lastTab) document.querySelector(`nav button[data-tab="${lastTab}"]`)?.click();
 // Filtros
 $("#o-filtros").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; FILTRO = b.dataset.f; document.querySelectorAll("#o-filtros button").forEach(x => x.setAttribute("aria-pressed", x === b)); renderLista(); });
 // Mês / Semana
