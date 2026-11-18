@@ -166,7 +166,7 @@ dialog.sheet:not([open]){display:none}
 .sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 16px 10px;border-bottom:1px solid var(--grid)}
 .sheet-b{overflow:auto;padding:4px 16px calc(16px + env(safe-area-inset-bottom))}
 tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
-.cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums} .cmp th{font-size:11px;font-weight:400;color:var(--muted);text-align:right;padding:8px 0 6px 10px} .cmp td{font-size:13px;text-align:right;padding:9px 0 9px 10px;vertical-align:top;border-top:1px solid var(--grid);white-space:nowrap} .cmp th:first-child,.cmp td:first-child{text-align:left;padding-left:0} .cmp td:first-child{font-weight:600} .cmp small{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
+.cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums} .cmp th{font-size:11px;font-weight:400;color:var(--muted);text-align:right;padding:8px 0 6px 10px} .cmp td{font-size:12.5px;text-align:right;padding:9px 0 9px 8px;vertical-align:top;border-top:1px solid var(--grid);white-space:nowrap} .cmp th:first-child,.cmp td:first-child{text-align:left;padding-left:0} .cmp td:first-child{font-weight:600} .cmp small{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
 .imarg{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:2px}.imarg.neg{color:var(--bad)}
 </style>
 </head>
@@ -209,7 +209,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
         <div class="mstats" id="k-marg-stats"></div></div>
       <div class="card wide" id="card-frete" hidden></div>
     </div>
-    <div id="cmp-wrap" hidden><h2>Comparativo mensal <small id="cmp-sub"></small></h2><div class="card" id="cmp-tab" style="padding:8px 16px"></div></div>
+    <div id="cmp-wrap" hidden><h2>Comparativo mensal <small id="cmp-sub"></small></h2><div class="card" id="cmp-tab" style="padding:8px 12px"></div></div>
     <div id="pa-wrap" hidden>
     <h2>Pedidos em andamento <small>rotina 336 · liberados e bloqueados</small></h2>
     <div class="card" style="margin-bottom:14px">
@@ -684,6 +684,7 @@ function renderFrete() {
   const diaAte = fr.ate && fr.ate.startsWith(ymA) ? +fr.ate.slice(8) : null;
   const fatAte = diaAte ? (f.por_dia || []).filter(x => x.dia <= diaAte).reduce((q, x) => q + x.valor, 0) : 0;
   const frA = (pmF[ymA] || {}).valor || 0, pA = fatAte ? frA / fatAte * 100 : null;
+  const nfAte = diaAte ? (f.notas_mes || []).filter(n => String(n.data).startsWith(ymA) && +String(n.data).slice(8) <= diaAte).length : 0;
   const frP = (pmF[ymP] || {}).valor || 0, pP = pmV[ymP] ? frP / pmV[ymP] * 100 : null;
   card.hidden = !temFrete;
   if (temFrete) {
@@ -693,21 +694,26 @@ function renderFrete() {
       <div class="mstats"><div><span>Frete no mês</span><b>${brl(frA)}</b><small>${(pmF[ymA] || {}).qtd || 0} pagamentos</small></div>
         <div><span>Faturado</span><b>${brl(fatAte)}</b><small>${ate ? "até " + ate : ""}</small></div>
         <div><span>Mês anterior</span><b>${pP == null ? "—" : p1(pP)}</b><small>${brl(frP)}</small></div></div>
+      <div class="mstats" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--grid)"><div><span>Notas</span><b>${nfAte || "—"}</b><small>${ate ? "até " + ate : ""}</small></div>
+        <div><span>Valor por nota</span><b>${nfAte ? brl(fatAte / nfAte) : "—"}</b><small>faturado ÷ notas</small></div>
+        <div><span>Frete por nota</span><b>${nfAte ? brl2(frA / nfAte) : "—"}</b><small>frete ÷ notas</small></div></div>
       ${(fr.por_parceiro || []).length ? `<div class="vsub" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--grid);line-height:1.7">${fr.por_parceiro.slice(0, 6).map(x => `${esc(primeiroNome(x.nome))} <b style="color:var(--ink)">${brl(x.valor)}</b> <span style="color:var(--muted)">(${x.qtd})</span>`).join(" · ")}</div>` : ""}`;
   }
   // comparativo mensal: faturado, margem e (quando há) frete
-  const cM = {}; ((d.hist_mensal || {}).fat || []).forEach(x => { const o = cM[x.mes] || (cM[x.mes] = { v: 0, c: 0 }); o.v += x.valor; o.c += x.custo || 0; });
+  const cM = {}; ((d.hist_mensal || {}).fat || []).forEach(x => { const o = cM[x.mes] || (cM[x.mes] = { v: 0, c: 0, n: 0 }); o.v += x.valor; o.c += x.custo || 0; o.n += x.pedidos || 0; });
   const meses = Object.keys(pmV).filter(m => pmV[m] > 0 && cM[m]).sort().reverse().slice(0, 12);
   wrap.hidden = !(EMPCFG.comparativo && meses.length > 1);
   if (wrap.hidden) return;
-  $("#cmp-sub").textContent = temFrete ? "faturado, margem e frete" : "faturado e margem";
+  $("#cmp-sub").textContent = (temFrete ? "faturado, margem e frete" : "faturado e margem") + " · valores em R$";
+  const n0 = x => Math.round(x).toLocaleString("pt-BR");
   const lin = (m, i) => { const atual = m === ymA, v = pmV[m], mg = cM[m].v ? (cM[m].v - cM[m].c) / cM[m].v * 100 : null, fx = (pmF[m] || {}).valor || 0;
     const pf = atual ? pA : (v ? fx / v * 100 : null), prev = meses[i + 1], dv = prev ? pct(v, pmV[prev]) : null;
     return `<tr><td>${MESES[+m.slice(5) - 1]}/${m.slice(2, 4)}${atual ? `<small style="font-weight:400">até dia ${ref.getDate()}</small>` : ""}</td>
-      <td>${brl(v)}${dv == null || atual ? "" : `<small style="color:${dv >= 0 ? "var(--good)" : "var(--bad)"}">${dv >= 0 ? "▲" : "▼"} ${fmtPct(dv)}</small>`}</td>
-      <td>${mg == null ? "—" : p1(mg)}<small>${brl(cM[m].v - cM[m].c)}</small></td>
-      ${temFrete ? `<td>${pf == null ? "—" : p1(pf)}<small>${brl(fx)}</small></td><td>${mg == null || pf == null ? "—" : p1(mg - pf)}</td>` : ""}</tr>`; };
-  $("#cmp-tab").innerHTML = `<table class="cmp"><tr><th>Mês</th><th>Faturado</th><th>Margem</th>${temFrete ? "<th>Frete</th><th>Após frete</th>" : ""}</tr>${meses.map(lin).join("")}</table>`;
+      <td>${n0(v)}${dv == null || atual ? "" : `<small style="color:${dv >= 0 ? "var(--good)" : "var(--bad)"}">${dv >= 0 ? "▲" : "▼"} ${fmtPct(dv)}</small>`}</td>
+      <td>${cM[m].n ? n0(v / cM[m].n) : "—"}<small>${cM[m].n} notas</small></td>
+      <td>${mg == null ? "—" : p1(mg)}<small>${n0(cM[m].v - cM[m].c)}</small></td>
+      ${temFrete ? `<td>${pf == null ? "—" : p1(pf)}<small>${n0(fx)}</small></td><td>${mg == null || pf == null ? "—" : p1(mg - pf)}</td>` : ""}</tr>`; };
+  $("#cmp-tab").innerHTML = `<table class="cmp"><tr><th>Mês</th><th>Faturado</th><th>Por nota</th><th>Margem</th>${temFrete ? "<th>Frete</th><th>Após<br>frete</th>" : ""}</tr>${meses.map(lin).join("")}</table>`;
 }
 function renderMargem() {
   const card = $("#card-margem"); const ns = (DATA && DATA.faturamento.notas_mes) || [];
