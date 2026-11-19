@@ -166,6 +166,11 @@ dialog.sheet:not([open]){display:none}
 .sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 16px 10px;border-bottom:1px solid var(--grid)}
 .sheet-b{overflow:auto;padding:4px 16px calc(16px + env(safe-area-inset-bottom))}
 tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
+.cxrow{padding:14px 0;border-top:1px solid var(--grid);cursor:pointer}.cxrow:first-child{border-top:0}
+.cxh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.cxh b{font-size:15px}.cxh span{font-size:12px;color:var(--muted)}
+.cxbar{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:8px;margin-top:7px;font-size:12.5px;font-variant-numeric:tabular-nums}.cxbar>span:first-child{color:var(--muted)}
+.cxbar i{display:block;height:8px;border-radius:4px;min-width:2px}.cxbar small{color:var(--muted);font-size:11px}
+.cxal{display:flex;justify-content:space-between;gap:10px;align-items:center;background:color-mix(in srgb,var(--bad) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--bad) 25%,var(--border));border-radius:14px;padding:11px 14px;margin:10px 0 0;font-size:13px}.cxal b{color:var(--bad);white-space:nowrap}
 .cmp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums} .cmp th{font-size:11px;font-weight:400;color:var(--muted);text-align:right;padding:8px 0 6px 10px} .cmp td{font-size:12.5px;text-align:right;padding:9px 0 9px 8px;vertical-align:top;border-top:1px solid var(--grid);white-space:nowrap} .cmp th:first-child,.cmp td:first-child{text-align:left;padding-left:0} .cmp td:first-child{font-weight:600} .cmp small{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
 .imarg{font-size:12.5px;font-weight:600;color:var(--ink);margin-top:2px}.imarg.neg{color:var(--bad)}
 </style>
@@ -258,6 +263,13 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
     <div class="card"><table id="o-lista"></table></div>
   </section>
 
+  <section id="tab-cx" hidden>
+    <div class="card" id="cx-top"></div>
+    <div id="cx-alerta"></div>
+    <h2 style="margin-top:4px">Títulos a vencer <small>próximas 8 semanas</small></h2>
+    <div class="card" id="cx-sem" style="padding:4px 16px"></div>
+    <p class="vsub" style="margin:10px 4px 0;line-height:1.5">Recebimentos pela data de entrada na conta (D+1) e pagamentos pelo vencimento (sábado e domingo vão para a segunda). Só entram títulos já emitidos: vendas e compras futuras não aparecem.</p>
+  </section>
   <section id="tab-vend" hidden>
     <div class="card" id="v-equipe" hidden style="margin-top:4px"></div>
     <h2 style="margin-top:4px">Ranking do mês <small id="v-rank-sub">por vendedora · meta do Winthor</small></h2>
@@ -269,6 +281,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
 <nav>
   <button data-tab="fat" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>Faturamento</button>
   <button data-tab="orc" aria-current="false"><svg viewBox="0 0 24 24"><path d="M6 3h9l5 5v13H6z"/><path d="M14 3v6h6"/><path d="M9 13h6M9 17h6"/></svg>Orçamentos</button>
+  <button data-tab="cx" aria-current="false" style="display:none"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>Caixa</button>
   <button data-tab="vend" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0121.5 20"/></svg>Vendedoras</button>
 </nav>
 
@@ -287,7 +300,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
 <script>
 // ===== Configuração =====
 const EMPCFG = window.EMP === "sol"
-  ? { nome: "Sol Nascente", app: "vendas_sol", pre: "sol_", semOrc: true, frete: true, comparativo: true, vend: "vendedor", Vend: "Vendedor", vends: "vendedores", Vends: "Vendedores" }
+  ? { nome: "Sol Nascente", app: "vendas_sol", pre: "sol_", semOrc: true, frete: true, comparativo: true, caixa: true, vend: "vendedor", Vend: "Vendedor", vends: "vendedores", Vends: "Vendedores" }
   : { nome: "FiberFix", app: "vendas", pre: "", semOrc: false, vend: "vendedora", Vend: "Vendedora", vends: "vendedoras", Vends: "Vendedoras" };
 const DATA_BASE = "https://script.google.com/macros/s/AKfycbz3CLGSgvEKRoFI5FyTBDnnF3l-4v5pFx5rO_UyLZn1gr8AeSO0e78ugg60umRLcaNO/exec?app=" + EMPCFG.app;
 let PW_ATUAL = load("vendas_pw");
@@ -499,7 +512,7 @@ function render(d) {
   const nh = notasDoDia(hojeStr(isNaN(dt) ? hoje() : dt)); $("#k-hoje-sub").textContent = nh.length ? `${nh.length} nota${nh.length > 1 ? "s" : ""}` : (f.notas_mes ? "nenhuma nota ainda" : "");
   renderMeta(f);
   renderAndamento(d);
-  renderMargem(); renderFrete();
+  renderMargem(); renderFrete(); renderCaixa();
   renderAlerta(d);
   { const nl = notasDoDia(hojeStr(isNaN(dt) ? hoje() : dt)); const v = nl.reduce((a, n) => a + n.valor, 0), c = nl.reduce((a, n) => a + (n.custo || 0), 0);
     $("#k-lb").textContent = nl.length ? brl(v - c) : "—";
@@ -672,6 +685,61 @@ function abrirPed(num) {
 }
 let MPERIODO = load("vendas_mperiodo") || "mes";
 const NOMEP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês", tri: "no trimestre" };
+// Caixa: títulos a receber e a pagar das próximas 8 semanas, com as regras de caixa combinadas
+function feriado(d) {   // feriados nacionais (fixos + Sexta-feira Santa, Carnaval e Corpus Christi)
+  const y = d.getFullYear(), k = (m, x) => new Date(y, m - 1, x).getTime(), t = new Date(y, d.getMonth(), d.getDate()).getTime();
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, h = (19 * a + b - Math.floor(b / 4) - Math.floor((b - Math.floor((b + 8) / 25) + 1) / 3) + 15) % 30, i2 = (32 + 2 * (b % 4) + 2 * Math.floor(c / 4) - h - c % 4) % 7, m2 = Math.floor((a + 11 * h + 22 * i2) / 451);
+  const pm = Math.floor((h + i2 - 7 * m2 + 114) / 31), pd = (h + i2 - 7 * m2 + 114) % 31 + 1, pas = new Date(y, pm - 1, pd), mov = n => new Date(y, pm - 1, pd + n).getTime();
+  return [k(1, 1), k(4, 21), k(5, 1), k(9, 7), k(10, 12), k(11, 2), k(11, 15), k(11, 20), k(12, 25), mov(-48), mov(-47), mov(-2), mov(60)].includes(t);
+}
+const diaUtil = d => d.getDay() !== 0 && d.getDay() !== 6 && !feriado(d);
+const maisDias = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+// recebimento: o cliente paga no vencimento (ou no próximo dia útil) e o dinheiro entra no dia seguinte
+function entraEm(venc) { let d = new Date(venc + "T00:00:00"); while (!diaUtil(d)) d = maisDias(d, 1); return maisDias(d, 1); }
+// pagamento: pelo vencimento; sábado e domingo vão para a segunda
+function pagaEm(venc) { const d = new Date(venc + "T00:00:00"), w = d.getDay(); return w === 6 ? maisDias(d, 2) : w === 0 ? maisDias(d, 1) : d; }
+let CX_SEM = [];
+function renderCaixa() {
+  const cx = (DATA || {}).caixa, btn = document.querySelector('nav button[data-tab="cx"]');
+  const tem = EMPCFG.caixa && cx && ((cx.receber || []).length || (cx.pagar || []).length);
+  btn.style.display = tem ? "" : "none"; if (!tem) return;
+  const ref = refData(), hoje = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate()), seg0 = maisDias(hoje, -((hoje.getDay() + 6) % 7));
+  const dm = d => String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0"), iso = d => hojeStr(d);
+  const sem = Array.from({ length: 8 }, (_, i) => ({ i, ini: i ? maisDias(seg0, 7 * i) : hoje, fim: maisDias(seg0, 7 * i + 6), parcial: !i && hoje > seg0, r: 0, rq: 0, p: 0, pq: 0, dias: {} }));
+  const lancar = (d, v, q, tipo) => { const n = Math.floor((d - seg0) / 6048e5); if (d < hoje || n < 0 || n > 7) return; const s = sem[n], k = iso(d), o = s.dias[k] || (s.dias[k] = { d, r: 0, rq: 0, p: 0, pq: 0 });
+    if (tipo === "r") { s.r += v; s.rq += q; o.r += v; o.rq += q; } else { s.p += v; s.pq += q; o.p += v; o.pq += q; } };
+  (cx.receber || []).forEach(x => lancar(entraEm(x.venc), x.valor, x.qtd, "r")); (cx.pagar || []).forEach(x => lancar(pagaEm(x.venc), x.valor, x.qtd, "p"));
+  CX_SEM = sem; let ac = 0; sem.forEach(s => { s.saldo = s.r - s.p; ac += s.saldo; s.ac = ac; });
+  const mx = Math.max(1, ...sem.map(s => Math.max(s.r, s.p))), cor = v => v >= 0 ? "var(--good)" : "var(--bad)", sinal = v => (v < 0 ? "− " : "") + brl(Math.abs(v));
+  const d7 = sem.flatMap(s => Object.values(s.dias)).filter(o => o.d < maisDias(hoje, 7)), r7 = d7.reduce((q, o) => q + o.r, 0), p7 = d7.reduce((q, o) => q + o.p, 0);
+  $("#cx-top").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="label" style="margin:0">Saldo dos próximos 7 dias</div><span class="vsub" style="margin:0">${dm(hoje)} a ${dm(maisDias(hoje, 6))}</span></div>
+    <div class="hero" style="margin-top:8px;color:${cor(r7 - p7)}">${sinal(r7 - p7)}</div>
+    <div class="mstats"><div><span>A receber</span><b>${brl(r7)}</b><small>${d7.reduce((q, o) => q + o.rq, 0)} títulos</small></div>
+      <div><span>A pagar</span><b>${brl(p7)}</b><small>${d7.reduce((q, o) => q + o.pq, 0)} títulos</small></div>
+      <div><span>Saldo 8 semanas</span><b style="color:${cor(ac)};white-space:nowrap">${sinal(ac)}</b><small>títulos emitidos</small></div></div>`;
+  const vr = cx.vencido_receber || {}, vp = cx.vencido_pagar || {};
+  $("#cx-alerta").innerHTML = (vr.valor > 0 ? `<div class="cxal"><span>A receber vencido e não pago · ${vr.qtd} títulos</span><b>${brl(vr.valor)}</b></div>` : "") + (vp.valor > 0 ? `<div class="cxal"><span>A pagar vencido e em aberto · ${vp.qtd} títulos</span><b>${brl(vp.valor)}</b></div>` : "");
+  $("#cx-sem").innerHTML = sem.map(s => `<div class="cxrow" data-sem="${s.i}" role="button">
+    <div class="cxh"><div><b>Semana ${s.i + 1}</b> <span>${dm(s.ini)} a ${dm(s.fim)}${s.parcial ? " · parcial" : ""}</span></div><b style="color:${cor(s.saldo)}">${sinal(s.saldo)}</b></div>
+    <div class="cxbar"><span>Receber</span><div><i style="width:${(s.r / mx * 100).toFixed(1)}%;background:var(--s1)"></i></div><span>${brl(s.r)} <small>(${s.rq})</small></span></div>
+    <div class="cxbar"><span>Pagar</span><div><i style="width:${(s.p / mx * 100).toFixed(1)}%;background:var(--bad)"></i></div><span>${brl(s.p)} <small>(${s.pq})</small></span></div>
+    <div class="vsub" style="margin-top:6px">Saldo acumulado <b style="color:${cor(s.ac)}">${sinal(s.ac)}</b> <span class="chev" style="float:right">›</span></div></div>`).join("");
+  $("#cx-sem").onclick = e => { const el = e.target.closest(".cxrow"); if (el) abrirSemanaCx(+el.dataset.sem); };
+}
+function abrirSemanaCx(i) {
+  const s = CX_SEM[i]; if (!s) return; DET_BACK = null;
+  const dm = d => String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0"), DS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+  const sinal = v => (v < 0 ? "− " : "") + brl2(Math.abs(v));
+  $("#det-title").textContent = `Semana ${i + 1} · ${dm(s.ini)} a ${dm(s.fim)}`;
+  $("#det-sub").innerHTML = `Recebimentos e pagamentos por dia${s.parcial ? " · semana parcial" : ""}`;
+  const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+  $("#det-kv").innerHTML = kv("A receber", `${brl2(s.r)} · ${s.rq} títulos`) + kv("A pagar", `${brl2(s.p)} · ${s.pq} títulos`) + kv("Saldo da semana", `<span style="color:${s.saldo >= 0 ? "var(--good)" : "var(--bad)"}">${sinal(s.saldo)}</span>`) + kv("Saldo acumulado", `<span style="color:${s.ac >= 0 ? "var(--good)" : "var(--bad)"}">${sinal(s.ac)}</span>`);
+  $("#det-extra").innerHTML = "";
+  $("#det-itens").previousElementSibling.textContent = "Por dia";
+  const dias = Object.values(s.dias).sort((a, b) => a.d - b.d);
+  $("#det-itens").innerHTML = dias.length ? dias.map(o => `<tr><td><div class="cli">${dm(o.d)} · ${DS[o.d.getDay()]}</div><div class="mt">receber ${brl2(o.r)} (${o.rq}) · pagar ${brl2(o.p)} (${o.pq})</div></td><td class="v" style="color:${o.r - o.p >= 0 ? "var(--good)" : "var(--bad)"}">${sinal(o.r - o.p)}</td></tr>`).join("") : `<tr><td class="empty">Nenhum título nesta semana.</td></tr>`;
+  $("#det .sheet-b").scrollTop = 0; $("#det").showModal();
+}
 // Frete sobre vendas (contas a pagar do Winthor, por competência) e comparativo mensal
 function renderFrete() {
   const d = DATA || {}, f = d.faturamento || {}, fr = d.frete || {}, card = $("#card-frete"), wrap = $("#cmp-wrap");
@@ -1079,7 +1147,7 @@ window.addEventListener("resize", () => DATA && render(DATA));
 // Abas
 document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-current", x === b ? "page" : "false"));
-  ["fat", "orc", "vend"].forEach(t => $("#tab-" + t).hidden = t !== b.dataset.tab);
+  ["fat", "orc", "cx", "vend"].forEach(t => $("#tab-" + t).hidden = t !== b.dataset.tab);
   store("vendas_tab", b.dataset.tab);
   if (DATA) render(DATA); // redesenha gráficos da aba visível (largura)
 }));
