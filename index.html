@@ -697,29 +697,59 @@ function abrirPed(num) {
 }
 let MPERIODO = load("vendas_mperiodo") || "mes";
 const NOMEP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês", tri: "no trimestre" };
-// Reposição e estoque ideal (mesmos dados e regras do painel de Reposição no site)
-let RP_ABA = "repor", RP_Q = "";
+// Reposição e estoque ideal: mesmos dados, regras e senha do painel de Reposição do site (lidos direto dele)
+const REP_URL = "https://script.google.com/macros/s/AKfycbywuHe-TaCVdbKx5uTMynbg6SyYny_A8PEOMe1lJG1iKvKTbOuunmAZYb3t-hoQFjxFVg/exec";
+let REP_T = 0, RP_ABA = "repor", RP_Q = "", REP = null, REP_PW = "", REP_MSG = "", REP_BUSY = false, REP_PED = null;
+async function repPost(body) {
+  const r = await fetch(REP_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) });
+  const j = await r.json(); if (!j.ok) throw new Error(j.msg || "Não foi possível falar com o painel de Reposição."); return j;
+}
+async function repCarregar(pw) {
+  if (REP_BUSY) return; REP_BUSY = true; REP_MSG = ""; renderRep();
+  try { const j = await repPost({ acao: "dados", senha: pw }); REP = j; REP_PW = pw; store("rep_pw", pw); try { store("rep_cache", JSON.stringify(j)); } catch (e) { } }
+  catch (e) { REP_MSG = e.message || String(e); if (/senha/i.test(REP_MSG)) { REP_PW = ""; store("rep_pw", null); REP = null; store("rep_cache", null); } }
+  REP_BUSY = false; renderRep();
+}
+function repIniciar() { if (!EMPCFG.reposicao) return; REP_T = Date.now(); REP_PW = load("rep_pw") || ""; try { REP = JSON.parse(load("rep_cache") || "null"); } catch (e) { REP = null; } if (REP_PW) repCarregar(REP_PW); }
+const repGrupo = p => p.grupo ?? p.codfornec, repProd = cod => (REP.produtos || []).find(p => p.cod == cod);
+const repChegou = (p, r) => !!(p && p.ultima_entrada && p.ultima_entrada > String(r.data).slice(0, 10));
+// pedidos já gerados (últimos 30 dias) que ainda não chegaram, do mais novo para o mais antigo
+const repPedidos = g => (REP.pedidos_gerados || []).filter(r => ((REP.fornecedores || {})[String(r.codfornec)] || {}).grupo == g || r.codfornec == g).filter(r => !(r.itens || []).length || r.itens.some(it => !repChegou(repProd(it.cod), r))).sort((a, b) => a.data < b.data ? 1 : -1);
 function renderRep() {
-  const R = (DATA || {}).reposicao, btn = document.querySelector('nav button[data-tab="rep"]');
-  const tem = EMPCFG.reposicao && R && (R.produtos || []).length; btn.style.display = tem ? "" : "none"; if (!tem) return;
+  const btn = document.querySelector('nav button[data-tab="rep"]'); btn.style.display = EMPCFG.reposicao ? "" : "none"; if (!EMPCFG.reposicao) return;
+  const R = REP, temDados = R && (R.produtos || []).length;
+  ["#rp-seg", "#rp-q"].forEach(q => $(q).style.display = temDados ? (q === "#rp-seg" ? "flex" : "") : "none");
+  if (!temDados) {
+    $("#rp-list").innerHTML = ""; $("#rp-nota").textContent = "";
+    $("#rp-top").innerHTML = `<div class="label" style="margin:0">Reposição e estoque ideal</div><p class="vsub" style="margin:8px 0 12px;line-height:1.5">Esta aba usa a mesma senha do painel de Reposição do site. Ela fica guardada só neste aparelho.</p>
+      <input type="password" id="rp-pw" placeholder="Senha do painel de Reposição" autocomplete="current-password" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px">
+      <button class="btn" id="rp-entrar" style="width:100%;margin-top:10px;padding:12px;background:var(--s1);color:#fff;border-color:var(--s1);font-weight:600;justify-content:center;text-align:center"${REP_BUSY ? " disabled" : ""}>${REP_BUSY ? "Carregando…" : "Entrar"}</button>
+      ${REP_MSG ? `<p class="luc-bad" style="margin:10px 0 0;font-size:13px">${esc(REP_MSG)}</p>` : ""}`;
+    return;
+  }
   const rs = R.resumo || {}, n0 = x => Math.round(x || 0).toLocaleString("pt-BR"), dd = x => x == null ? "—" : String(x).replace(".", ",");
-  $("#rp-top").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="label" style="margin:0">Repor agora</div><span class="vsub" style="margin:0">calculado ${R.gerado_em ? fmtData(R.gerado_em.slice(0, 10)) + " às " + R.gerado_em.slice(11, 16) : ""}</span></div>
+  $("#rp-top").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="label" style="margin:0">Repor agora</div><span class="vsub" style="margin:0">${REP_BUSY ? "atualizando…" : "calculado " + (R.gerado_em ? fmtData(R.gerado_em.slice(0, 10)) + " às " + R.gerado_em.slice(11, 16) : "")}</span></div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px"><div class="hero">${brl(rs.valor_repor)}</div><span class="mpill late">${rs.itens_repor} itens abaixo do ponto</span></div>
     <div class="mstats"><div><span>Estoque hoje</span><b>${brl(rs.estoque_disponivel)}</b><small>${dd(rs.dias_hoje)} dias de venda</small></div>
       <div><span>Estoque ideal</span><b>${brl(rs.estoque_ideal_medio)}</b><small>${dd(rs.dias_ideal)} dias de venda</small></div>
-      <div><span>Excesso</span><b style="color:var(--bad)">${brl(rs.excesso_total)}</b><small>acima do máximo</small></div></div>`;
+      <div><span>Excesso</span><b style="color:var(--bad)">${brl(rs.excesso_total)}</b><small>acima do máximo</small></div></div>
+    ${REP_MSG ? `<p class="luc-bad" style="margin:10px 0 0;font-size:13px">${esc(REP_MSG)}</p>` : ""}`;
   const q = RP_Q.trim().toLowerCase(), ok = p => !q || (p.produto + " " + p.fornecedor + " " + p.cod).toLowerCase().includes(q);
-  const F = R.fornecedores || {}, nomeF = p => titulo((F[String(p.grupo ?? p.codfornec)] || {}).nome || p.fornecedor || "");
+  const F = R.fornecedores || {}, nomeF = p => titulo((F[String(repGrupo(p))] || {}).nome || p.fornecedor || "");
+  const dmB = v => fmtData(String(v).slice(0, 10));
   let h = "", nota = "";
   if (RP_ABA === "repor") {
-    const it = (R.produtos || []).filter(p => p.pedir_un > 0 && ok(p)), g = {}; it.forEach(p => (g[p.grupo ?? p.codfornec] = g[p.grupo ?? p.codfornec] || []).push(p));
+    const it = (R.produtos || []).filter(p => p.pedir_un > 0 && ok(p)), g = {}; it.forEach(p => (g[repGrupo(p)] = g[repGrupo(p)] || []).push(p));
     const soma = l => l.reduce((a, p) => a + p.pedir_valor, 0);
-    h = Object.keys(g).sort((a, b) => soma(g[b]) - soma(g[a])).map(f => { const l = g[f].sort((a, b) => (a.cobertura_dias || 0) - (b.cobertura_dias || 0)), fo = F[String(f)] || {};
-      return `<div class="card" style="margin-bottom:10px;padding:14px 16px 4px"><div class="rpf"><div><b>${esc(nomeF(l[0]))}</b><br><span>${l.length} ite${l.length > 1 ? "ns" : "m"}${fo.prazo ? " · prazo " + esc(fo.prazo) : ""}</span></div><b>${brl(soma(l))}</b></div>` +
+    h = Object.keys(g).sort((a, b) => soma(g[b]) - soma(g[a])).map(f => { const l = g[f].sort((a, b) => (a.cobertura_dias || 0) - (b.cobertura_dias || 0)), fo = F[String(f)] || {}, feitos = repPedidos(f), u = feitos[0];
+      const marcaI = p => { for (const r of feitos) { if (repChegou(p, r)) continue; const x = (r.itens || []).find(y => y.cod == p.cod); if (x) return `<div class="mt" style="color:var(--good);font-weight:600">✓ pedido gerado ${dmB(r.data)}: ${n0(x.cx)} cx</div>`; } return ""; };
+      return `<div class="card" style="margin-bottom:10px;padding:14px 16px 12px"><div class="rpf"><div><b>${esc(nomeF(l[0]))}</b><br><span>${l.length} ite${l.length > 1 ? "ns" : "m"}${fo.prazo ? " · prazo " + esc(fo.prazo) : ""}</span></div><b>${brl(soma(l))}</b></div>
+        ${u ? `<div class="mt" style="font-size:12px;color:var(--good);font-weight:600;margin:-4px 0 8px">✓ Pedido gerado em ${dmB(u.data)}${u.solicitante ? " · " + esc(u.solicitante) : ""}${u.total != null ? " · " + brl(u.total) : ""}${feitos.length > 1 ? ` (+${feitos.length - 1})` : ""}</div>` : ""}` +
         l.map(p => { const c = p.cobertura_dias, urg = c != null && c <= 5;
-          return `<div class="rprow"><div><div class="cli">${esc(p.produto)}</div><div class="mt">cód. ${p.cod} · <span style="${urg ? "color:var(--bad);font-weight:600" : ""}">${c === 0 ? "zerado" : c == null ? "sem giro" : "dura " + n0(c) + " dias"}</span> · disponível ${n0(p.disponivel)}${p.em_pedido ? " · " + n0(p.em_pedido) + " em pedido" : ""}</div></div>
-            <div class="rv"><b>${n0(p.pedir_cx)} cx</b><small>${n0(p.pedir_un)} un · ${brl(p.pedir_valor)}</small></div></div>`; }).join("") + `</div>`; }).join("") || `<div class="card"><div class="empty">Nenhum item para repor agora.</div></div>`;
-    nota = "Quantidade sugerida para chegar ao estoque máximo, em caixas fechadas, já descontando o que está em pedido. Valor pelo preço da última entrada. Para gerar o pedido de compra em PDF, use o painel de Reposição no computador.";
+          return `<div class="rprow"><div><div class="cli">${esc(p.produto)}</div><div class="mt">cód. ${p.cod} · <span style="${urg ? "color:var(--bad);font-weight:600" : ""}">${c === 0 ? "zerado" : c == null ? "sem giro" : "dura " + n0(c) + " dias"}</span> · disponível ${n0(p.disponivel)}${p.em_pedido ? " · " + n0(p.em_pedido) + " em pedido" : ""}</div>${marcaI(p)}</div>
+            <div class="rv"><b>${n0(p.pedir_cx)} cx</b><small>${n0(p.pedir_un)} un · ${brl(p.pedir_valor)}</small></div></div>`; }).join("") +
+        `<button class="btn rp-ped" data-g="${esc(f)}" style="width:100%;margin-top:6px;padding:11px;font-weight:600;color:var(--s1);border-color:var(--s1);justify-content:center;text-align:center">Gerar pedido de compra</button></div>`; }).join("") || `<div class="card"><div class="empty">Nenhum item para repor agora.</div></div>`;
+    nota = "Quantidade sugerida para chegar ao estoque máximo, em caixas fechadas, já descontando o que está em pedido. Valor pelo preço da última entrada. O pedido gera um PDF para enviar ao fornecedor; ele não é lançado no Winthor.";
   } else if (RP_ABA === "ideal") {
     const ordem = { "Abaixo do ponto de pedido": 0, "Excesso": 1, "Em falta há mais de 30 dias (avaliar)": 2, "Sem venda em 90 dias": 3, "Dentro da faixa": 4 };
     const corS = { "Abaixo do ponto de pedido": "var(--bad)", "Excesso": "#b26a00", "Dentro da faixa": "var(--good)" }, rot = { "Abaixo do ponto de pedido": "Repor", "Excesso": "Excesso", "Em falta há mais de 30 dias (avaliar)": "Em falta +30 dias", "Sem venda em 90 dias": "Sem venda 90 dias", "Dentro da faixa": "Na faixa" };
@@ -737,6 +767,56 @@ function renderRep() {
   }
   $("#rp-list").innerHTML = h; $("#rp-nota").textContent = nota;
   document.querySelectorAll("#rp-seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.a === RP_ABA));
+}
+// Pedido de compra: mesma lógica do painel do site (quantidade e prazo editáveis, incluir outros produtos do fornecedor, PDF gerado pelo painel)
+function abrirPedidoRep(g) {
+  const F = (REP.fornecedores || {})[String(g)] || {}, sug = (REP.produtos || []).filter(p => repGrupo(p) == g && p.pedir_un > 0).sort((a, b) => (a.cobertura_dias || 0) - (b.cobertura_dias || 0));
+  REP_PED = { g, nome: titulo(F.nome || (sug[0] || {}).fornecedor || ""), itens: sug.map(p => ({ cod: p.cod, cx: p.pedir_cx })), prazo: F.prazo || "", quem: load("rep_quem") || "", obs: "", msg: "", erro: false, busy: false, arq: null, feito: null };
+  DET_BACK = null; desenharPedidoRep(); $("#det").showModal();
+}
+function desenharPedidoRep() {
+  const P = REP_PED; if (!P) return; const n0 = x => Math.round(x || 0).toLocaleString("pt-BR");
+  const linhas = P.itens.map(it => ({ it, p: repProd(it.cod) })).filter(x => x.p), tot = linhas.reduce((a, x) => a + (Math.floor(+x.it.cx) || 0) * x.p.un_cx * (x.p.preco || 0), 0);
+  const inp = "width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px;margin-top:4px";
+  $("#det-title").textContent = "Pedido de compra · " + P.nome;
+  $("#det-sub").innerHTML = P.feito ? `Pedido ${esc(P.feito.numero)} gerado` : `Total <b style="color:var(--ink)" id="rpp-total">${brl2(tot)}</b> · preço da última entrada`;
+  $("#det-kv").innerHTML = "";
+  if (P.feito) {
+    $("#det-extra").innerHTML = `<div class="card" style="margin-top:12px;text-align:center;padding:18px 16px"><div class="hero" style="font-size:22px;color:var(--good)">✓ PDF pronto</div><p class="vsub" style="margin:8px 0 14px;line-height:1.5">${P.feito.itens} ite${P.feito.itens > 1 ? "ns" : "m"} · ${brl2(P.feito.total)}${P.feito.salvo ? "<br>Cópia salva no Drive, pasta pedidos-compra." : ""}</p>
+      <button class="btn" id="rpp-zap" style="width:100%;padding:13px;background:#128c4a;color:#fff;border-color:#128c4a;font-weight:600;font-size:15px;justify-content:center;text-align:center">Enviar pelo WhatsApp</button>
+      <a id="rpp-baixar" class="btn" href="${P.url}" download="${esc(P.feito.nome)}" style="display:block;width:100%;margin-top:10px;padding:12px;text-align:center;text-decoration:none;color:var(--ink)">Baixar o PDF</a>
+      ${P.msg ? `<p class="${P.erro ? "luc-bad" : "vsub"}" style="margin:10px 0 0;font-size:13px">${esc(P.msg)}</p>` : ""}</div>`;
+    $("#det-itens").previousElementSibling.textContent = ""; $("#det-itens").innerHTML = ""; return;
+  }
+  const outros = (REP.produtos || []).filter(p => repGrupo(p) == P.g && !P.itens.some(i => i.cod == p.cod)).sort((a, b) => a.produto.localeCompare(b.produto));
+  $("#det-extra").innerHTML = `<div style="margin-top:6px"><label class="vsub">Prazo de pagamento<input id="rpp-prazo" maxlength="80" placeholder="ex.: 28/35/42 dias" value="${esc(P.prazo)}" style="${inp}"></label>
+    <label class="vsub" style="display:block;margin-top:10px">Solicitante<input id="rpp-quem" maxlength="60" placeholder="Seu nome" value="${esc(P.quem)}" style="${inp}"></label>
+    <label class="vsub" style="display:block;margin-top:10px">Observações (opcional)<input id="rpp-obs" maxlength="400" value="${esc(P.obs)}" style="${inp}"></label></div>`;
+  $("#det-itens").previousElementSibling.textContent = "Itens · quantidade em caixas";
+  $("#det-itens").innerHTML = linhas.map(({ it, p }, i) => `<tr><td><div class="cli">${esc(p.produto)}</div><div class="mt">cód. ${p.cod} · ${n0(p.un_cx)} un/cx · vende ${n0(p.venda_90d / 3)}/mês · tem ${n0(p.disponivel)}</div><div class="mt" id="rpp-l${i}">${n0((Math.floor(+it.cx) || 0) * p.un_cx)} un · ${brl2((Math.floor(+it.cx) || 0) * p.un_cx * (p.preco || 0))}</div></td>
+      <td class="v" style="white-space:nowrap"><input class="rpp-cx" data-i="${i}" type="number" inputmode="numeric" min="0" step="1" value="${it.cx}" style="width:74px;padding:9px 8px;text-align:right;border:1px solid var(--border);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px"> cx</td></tr>`).join("")
+    + `<tr><td colspan="2" style="border:0;padding-top:12px">${outros.length ? `<select id="rpp-add" style="${inp};margin-top:0"><option value="">Adicionar outro produto deste fornecedor…</option>${outros.map(p => `<option value="${p.cod}">${esc(p.produto)} (tem ${n0(p.disponivel)})</option>`).join("")}</select>` : ""}
+      <button class="btn" id="rpp-gerar" style="width:100%;margin-top:12px;padding:13px;background:var(--s1);color:#fff;border-color:var(--s1);font-weight:600;font-size:15px;justify-content:center;text-align:center"${P.busy ? " disabled" : ""}>${P.busy ? "Gerando o PDF…" : "Gerar PDF"}</button>
+      ${P.msg ? `<p class="${P.erro ? "luc-bad" : "vsub"}" style="margin:10px 0 0;font-size:13px">${esc(P.msg)}</p>` : ""}</td></tr>`;
+}
+function repLerForm() { const P = REP_PED; if (!P || P.feito) return; const v = id => { const e = document.getElementById(id); return e ? e.value : ""; }; P.prazo = v("rpp-prazo"); P.quem = v("rpp-quem"); P.obs = v("rpp-obs"); }
+async function repGerarPdf() {
+  const P = REP_PED; repLerForm(); const itens = P.itens.map(it => ({ cod: it.cod, cx: Math.floor(+it.cx) || 0 })).filter(it => it.cx >= 1);
+  if (!itens.length) { P.msg = "Informe a quantidade de caixas de pelo menos um item."; P.erro = true; return desenharPedidoRep(); }
+  store("rep_quem", P.quem); P.busy = true; P.msg = ""; desenharPedidoRep();
+  try { const r = await repPost({ acao: "pedido", senha: REP_PW, pedido: { codfornec: P.g, prazo: P.prazo, obs: P.obs, solicitante: P.quem, itens } });
+    const bin = atob(r.pdf), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    P.arq = new File([bytes], r.nome, { type: "application/pdf" }); P.url = URL.createObjectURL(P.arq); P.feito = { numero: r.numero, nome: r.nome, total: r.total, itens: r.itens, salvo: r.salvo }; P.msg = ""; P.erro = false;
+    if (r.pedidos_gerados) { REP.pedidos_gerados = r.pedidos_gerados; try { store("rep_cache", JSON.stringify(REP)); } catch (e) { } renderRep(); }
+  } catch (e) { P.msg = e.message || String(e); P.erro = true; }
+  P.busy = false; desenharPedidoRep();
+}
+// o envio abre a folha de compartilhamento do celular já com o PDF anexado; quem escolhe a conversa do fornecedor é a pessoa
+async function repEnviarZap() {
+  const P = REP_PED; if (!P || !P.arq) return; const txt = `Pedido de compra ${P.feito.numero} · Sol Nascente Produtos Orientais\n${P.feito.itens} itens · ${brl2(P.feito.total)}\nFavor confirmar preços, prazo de pagamento e data de entrega.`;
+  try { if (navigator.canShare && navigator.canShare({ files: [P.arq] })) { await navigator.share({ files: [P.arq], title: P.feito.nome, text: txt }); return; } P.msg = "Este aparelho não permite anexar o PDF direto. Baixe o PDF e anexe na conversa do fornecedor."; P.erro = true; }
+  catch (e) { if (e && e.name === "AbortError") return; P.msg = "Não foi possível abrir o compartilhamento. Baixe o PDF e anexe na conversa do fornecedor."; P.erro = true; }
+  desenharPedidoRep();
 }
 const titulo = s => String(s).toLowerCase().replace(/(^|[\s.&/-])([a-zà-ú])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(Ltda|Me|Epp|Sa)\.?$/i, "").trim();
 // Caixa: títulos a receber e a pagar das próximas 8 semanas, com as regras de caixa combinadas
@@ -1203,11 +1283,22 @@ document.querySelectorAll("nav button").forEach(b => b.addEventListener("click",
   document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-current", x === b ? "page" : "false"));
   ["fat", "orc", "cx", "rep", "vend"].forEach(t => $("#tab-" + t).hidden = t !== b.dataset.tab);
   store("vendas_tab", b.dataset.tab);
+  if (b.dataset.tab === "rep" && REP_PW && Date.now() - REP_T > 120000) { REP_T = Date.now(); repCarregar(REP_PW); }
   if (DATA) render(DATA); // redesenha gráficos da aba visível (largura)
 }));
 document.querySelector('nav button[data-tab="vend"]').lastChild.textContent = EMPCFG.Vends;
 if (EMPCFG.semOrc) document.querySelector('nav button[data-tab="orc"]').style.display = "none";   // filial sem orçamentos no Winthor
 $("#rp-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { RP_ABA = b.dataset.a; renderRep(); } });
+$("#rp-top").addEventListener("click", e => { if (e.target.closest("#rp-entrar")) { const pw = ($("#rp-pw") || {}).value || ""; if (pw) repCarregar(pw); } });
+$("#rp-top").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "rp-pw" && e.target.value) repCarregar(e.target.value); });
+$("#rp-list").addEventListener("click", e => { const b = e.target.closest(".rp-ped"); if (b) abrirPedidoRep(b.dataset.g); });
+$("#det").addEventListener("input", e => { const P = REP_PED; if (!P || !e.target.classList.contains("rpp-cx")) return; const i = +e.target.dataset.i, it = P.itens[i], p = repProd(it.cod); it.cx = e.target.value;
+  const cx = Math.floor(+it.cx) || 0, n0 = x => Math.round(x || 0).toLocaleString("pt-BR"); $("#rpp-l" + i).textContent = `${n0(cx * p.un_cx)} un · ${brl2(cx * p.un_cx * (p.preco || 0))}`;
+  $("#rpp-total").textContent = brl2(P.itens.reduce((a, x) => { const q = repProd(x.cod); return a + (Math.floor(+x.cx) || 0) * q.un_cx * (q.preco || 0); }, 0)); });
+$("#det").addEventListener("change", e => { const P = REP_PED; if (!P || e.target.id !== "rpp-add" || !e.target.value) return; repLerForm(); P.itens.push({ cod: +e.target.value, cx: 1 }); P.msg = ""; desenharPedidoRep(); });
+$("#det").addEventListener("click", e => { if (!REP_PED) return; if (e.target.closest("#rpp-gerar")) repGerarPdf(); else if (e.target.closest("#rpp-zap")) repEnviarZap(); });
+$("#det").addEventListener("close", () => { REP_PED = null; $("#det-itens").previousElementSibling.textContent = "Itens"; });
+repIniciar();
 $("#rp-q").addEventListener("input", e => { RP_Q = e.target.value; renderRep(); });
 const lastTab = EMPCFG.semOrc && load("vendas_tab") === "orc" ? null : load("vendas_tab"); if (lastTab) document.querySelector(`nav button[data-tab="${lastTab}"]`)?.click();
 // Filtros
