@@ -166,6 +166,10 @@ dialog.sheet:not([open]){display:none}
 .sheet-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 16px 10px;border-bottom:1px solid var(--grid)}
 .sheet-b{overflow:auto;padding:4px 16px calc(16px + env(safe-area-inset-bottom))}
 tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
+.rprow{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--grid)}.rprow>div:first-child{min-width:0}
+.rprow .cli{font-size:13.5px;font-weight:600;line-height:1.25}.rprow .mt{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.35}.rprow .rv{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-size:13.5px}.rprow .rv small{display:block;font-size:11.5px;color:var(--muted);font-weight:400;margin-top:2px}
+.rpf{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding-bottom:10px}.rpf b{font-size:15px}.rpf span{font-size:12px;color:var(--muted)}
+.rptag{display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;margin-top:4px}
 .cxrow{padding:14px 0;border-top:1px solid var(--grid);cursor:pointer}.cxrow:first-child{border-top:0}
 .cxh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.cxh b{font-size:15px}.cxh span{font-size:12px;color:var(--muted)}
 .cxbar{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:8px;margin-top:7px;font-size:12.5px;font-variant-numeric:tabular-nums}.cxbar>span:first-child{color:var(--muted)}
@@ -270,6 +274,13 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
     <div class="card" id="cx-sem" style="padding:4px 16px"></div>
     <p class="vsub" style="margin:10px 4px 0;line-height:1.5">Recebimentos pela data de entrada na conta (D+1) e pagamentos pelo vencimento (sábado e domingo vão para a segunda). Só entram títulos já emitidos: vendas e compras futuras não aparecem.</p>
   </section>
+  <section id="tab-rep" hidden>
+    <div class="card" id="rp-top"></div>
+    <div class="seg wide" id="rp-seg" style="display:flex;margin:14px 0 10px"><button data-a="repor" aria-pressed="true" style="padding:8px 4px;font-size:13px">Repor agora</button><button data-a="ideal" aria-pressed="false" style="padding:8px 4px;font-size:13px">Estoque ideal</button><button data-a="excesso" aria-pressed="false" style="padding:8px 4px;font-size:13px">Excesso</button></div>
+    <input type="search" id="rp-q" placeholder="Buscar produto ou fornecedor" style="width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:15px;margin-bottom:10px">
+    <div id="rp-list"></div>
+    <p class="vsub" id="rp-nota" style="margin:10px 4px 0;line-height:1.5"></p>
+  </section>
   <section id="tab-vend" hidden>
     <div class="card" id="v-equipe" hidden style="margin-top:4px"></div>
     <h2 style="margin-top:4px">Ranking do mês <small id="v-rank-sub">por vendedora · meta do Winthor</small></h2>
@@ -282,6 +293,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
   <button data-tab="fat" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>Faturamento</button>
   <button data-tab="orc" aria-current="false"><svg viewBox="0 0 24 24"><path d="M6 3h9l5 5v13H6z"/><path d="M14 3v6h6"/><path d="M9 13h6M9 17h6"/></svg>Orçamentos</button>
   <button data-tab="cx" aria-current="false" style="display:none"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>Caixa</button>
+  <button data-tab="rep" aria-current="false" style="display:none"><svg viewBox="0 0 24 24"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>Reposição</button>
   <button data-tab="vend" aria-current="false"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0121.5 20"/></svg>Vendedoras</button>
 </nav>
 
@@ -300,7 +312,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
 <script>
 // ===== Configuração =====
 const EMPCFG = window.EMP === "sol"
-  ? { nome: "Sol Nascente", app: "vendas_sol", pre: "sol_", semOrc: true, frete: true, comparativo: true, caixa: true, vend: "vendedor", Vend: "Vendedor", vends: "vendedores", Vends: "Vendedores" }
+  ? { nome: "Sol Nascente", app: "vendas_sol", pre: "sol_", semOrc: true, frete: true, comparativo: true, caixa: true, reposicao: true, vend: "vendedor", Vend: "Vendedor", vends: "vendedores", Vends: "Vendedores" }
   : { nome: "FiberFix", app: "vendas", pre: "", semOrc: false, vend: "vendedora", Vend: "Vendedora", vends: "vendedoras", Vends: "Vendedoras" };
 const DATA_BASE = "https://script.google.com/macros/s/AKfycbz3CLGSgvEKRoFI5FyTBDnnF3l-4v5pFx5rO_UyLZn1gr8AeSO0e78ugg60umRLcaNO/exec?app=" + EMPCFG.app;
 let PW_ATUAL = load("vendas_pw");
@@ -512,7 +524,7 @@ function render(d) {
   const nh = notasDoDia(hojeStr(isNaN(dt) ? hoje() : dt)); $("#k-hoje-sub").textContent = nh.length ? `${nh.length} nota${nh.length > 1 ? "s" : ""}` : (f.notas_mes ? "nenhuma nota ainda" : "");
   renderMeta(f);
   renderAndamento(d);
-  renderMargem(); renderFrete(); renderCaixa();
+  renderMargem(); renderFrete(); renderCaixa(); renderRep();
   renderAlerta(d);
   { const nl = notasDoDia(hojeStr(isNaN(dt) ? hoje() : dt)); const v = nl.reduce((a, n) => a + n.valor, 0), c = nl.reduce((a, n) => a + (n.custo || 0), 0);
     $("#k-lb").textContent = nl.length ? brl(v - c) : "—";
@@ -685,6 +697,48 @@ function abrirPed(num) {
 }
 let MPERIODO = load("vendas_mperiodo") || "mes";
 const NOMEP = { dia: "hoje", semana: "na semana", quinzena: "na quinzena", mes: "no mês", tri: "no trimestre" };
+// Reposição e estoque ideal (mesmos dados e regras do painel de Reposição no site)
+let RP_ABA = "repor", RP_Q = "";
+function renderRep() {
+  const R = (DATA || {}).reposicao, btn = document.querySelector('nav button[data-tab="rep"]');
+  const tem = EMPCFG.reposicao && R && (R.produtos || []).length; btn.style.display = tem ? "" : "none"; if (!tem) return;
+  const rs = R.resumo || {}, n0 = x => Math.round(x || 0).toLocaleString("pt-BR"), dd = x => x == null ? "—" : String(x).replace(".", ",");
+  $("#rp-top").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="label" style="margin:0">Repor agora</div><span class="vsub" style="margin:0">calculado ${R.gerado_em ? fmtData(R.gerado_em.slice(0, 10)) + " às " + R.gerado_em.slice(11, 16) : ""}</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px"><div class="hero">${brl(rs.valor_repor)}</div><span class="mpill late">${rs.itens_repor} itens abaixo do ponto</span></div>
+    <div class="mstats"><div><span>Estoque hoje</span><b>${brl(rs.estoque_disponivel)}</b><small>${dd(rs.dias_hoje)} dias de venda</small></div>
+      <div><span>Estoque ideal</span><b>${brl(rs.estoque_ideal_medio)}</b><small>${dd(rs.dias_ideal)} dias de venda</small></div>
+      <div><span>Excesso</span><b style="color:var(--bad)">${brl(rs.excesso_total)}</b><small>acima do máximo</small></div></div>`;
+  const q = RP_Q.trim().toLowerCase(), ok = p => !q || (p.produto + " " + p.fornecedor + " " + p.cod).toLowerCase().includes(q);
+  const F = R.fornecedores || {}, nomeF = p => titulo((F[String(p.grupo ?? p.codfornec)] || {}).nome || p.fornecedor || "");
+  let h = "", nota = "";
+  if (RP_ABA === "repor") {
+    const it = (R.produtos || []).filter(p => p.pedir_un > 0 && ok(p)), g = {}; it.forEach(p => (g[p.grupo ?? p.codfornec] = g[p.grupo ?? p.codfornec] || []).push(p));
+    const soma = l => l.reduce((a, p) => a + p.pedir_valor, 0);
+    h = Object.keys(g).sort((a, b) => soma(g[b]) - soma(g[a])).map(f => { const l = g[f].sort((a, b) => (a.cobertura_dias || 0) - (b.cobertura_dias || 0)), fo = F[String(f)] || {};
+      return `<div class="card" style="margin-bottom:10px;padding:14px 16px 4px"><div class="rpf"><div><b>${esc(nomeF(l[0]))}</b><br><span>${l.length} ite${l.length > 1 ? "ns" : "m"}${fo.prazo ? " · prazo " + esc(fo.prazo) : ""}</span></div><b>${brl(soma(l))}</b></div>` +
+        l.map(p => { const c = p.cobertura_dias, urg = c != null && c <= 5;
+          return `<div class="rprow"><div><div class="cli">${esc(p.produto)}</div><div class="mt">cód. ${p.cod} · <span style="${urg ? "color:var(--bad);font-weight:600" : ""}">${c === 0 ? "zerado" : c == null ? "sem giro" : "dura " + n0(c) + " dias"}</span> · disponível ${n0(p.disponivel)}${p.em_pedido ? " · " + n0(p.em_pedido) + " em pedido" : ""}</div></div>
+            <div class="rv"><b>${n0(p.pedir_cx)} cx</b><small>${n0(p.pedir_un)} un · ${brl(p.pedir_valor)}</small></div></div>`; }).join("") + `</div>`; }).join("") || `<div class="card"><div class="empty">Nenhum item para repor agora.</div></div>`;
+    nota = "Quantidade sugerida para chegar ao estoque máximo, em caixas fechadas, já descontando o que está em pedido. Valor pelo preço da última entrada. Para gerar o pedido de compra em PDF, use o painel de Reposição no computador.";
+  } else if (RP_ABA === "ideal") {
+    const ordem = { "Abaixo do ponto de pedido": 0, "Excesso": 1, "Em falta há mais de 30 dias (avaliar)": 2, "Sem venda em 90 dias": 3, "Dentro da faixa": 4 };
+    const corS = { "Abaixo do ponto de pedido": "var(--bad)", "Excesso": "#b26a00", "Dentro da faixa": "var(--good)" }, rot = { "Abaixo do ponto de pedido": "Repor", "Excesso": "Excesso", "Em falta há mais de 30 dias (avaliar)": "Em falta +30 dias", "Sem venda em 90 dias": "Sem venda 90 dias", "Dentro da faixa": "Na faixa" };
+    const l = (R.produtos || []).filter(ok).sort((a, b) => (ordem[a.situacao] - ordem[b.situacao]) || (b.venda_30d - a.venda_30d));
+    h = `<div class="card" style="padding:4px 16px"><div class="vsub" style="padding:10px 0 6px">${l.length} produtos</div>` + l.slice(0, 250).map(p => { const c = corS[p.situacao] || "var(--muted)";
+      return `<div class="rprow"><div><div class="cli">${esc(p.produto)}</div><div class="mt">${esc(nomeF(p))}</div><div class="mt">cód. ${p.cod} · vende ${dd(p.venda_dia)}/dia</div><span class="rptag" style="color:${c};background:color-mix(in srgb,${c} 12%,transparent)">${rot[p.situacao] || esc(p.situacao)}</span></div>
+        <div class="rv"><b>${n0(p.disponivel)}</b><small>ponto ${p.ponto_pedido == null ? "—" : n0(p.ponto_pedido)} · máx ${p.estoque_maximo == null ? "—" : n0(p.estoque_maximo)}</small><small>${p.cobertura_dias == null ? "sem giro" : n0(p.cobertura_dias) + " dias"}</small></div></div>`; }).join("") + `</div>`;
+    nota = "Ponto de pedido: abaixo dele, é hora de comprar. Máximo: quanto ter logo após receber. Stoq e Osara (entrega em D+1): pedir com 6 dias de cobertura, máximo de 8. Demais: pedir no intervalo de entrega (7 a 20 dias), máximo de intervalo + 10, até 30 dias.";
+  } else {
+    const l = (R.excesso || []).filter(ok), tot = l.reduce((a, p) => a + p.excesso_valor, 0);
+    h = `<div class="card" style="padding:4px 16px"><div class="rpf" style="padding:12px 0 8px"><span>${l.length} produtos com excesso</span><b>${brl(tot)}</b></div>` + l.map(p =>
+      `<div class="rprow"><div><div class="cli">${esc(p.produto)}</div><div class="mt">${esc(p.sugestao || "")}</div><div class="mt">cód. ${p.cod} · tem ${n0(p.disponivel)} · máx ${n0(p.estoque_maximo)}${p.desconto_max != null ? " · desconto até " + Math.round(p.desconto_max * 100) + "%" : ""}</div></div>
+        <div class="rv"><b>${brl(p.excesso_valor)}</b><small>${n0(p.excesso_un)} un</small><small>${p.meses_para_sair == null ? "sem venda" : dd(p.meses_para_sair) + " meses"}</small></div></div>`).join("") + `</div>`;
+    nota = "Excesso é o que passa do estoque máximo, a custo. Meses para sair: no ritmo de venda dos últimos 30 dias. Desconto máximo sem prejuízo considera só o custo do produto, sem frete e comissão.";
+  }
+  $("#rp-list").innerHTML = h; $("#rp-nota").textContent = nota;
+  document.querySelectorAll("#rp-seg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.a === RP_ABA));
+}
+const titulo = s => String(s).toLowerCase().replace(/(^|[\s.&/-])([a-zà-ú])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(Ltda|Me|Epp|Sa)\.?$/i, "").trim();
 // Caixa: títulos a receber e a pagar das próximas 8 semanas, com as regras de caixa combinadas
 function feriado(d) {   // feriados nacionais (fixos + Sexta-feira Santa, Carnaval e Corpus Christi)
   const y = d.getFullYear(), k = (m, x) => new Date(y, m - 1, x).getTime(), t = new Date(y, d.getMonth(), d.getDate()).getTime();
@@ -1147,12 +1201,14 @@ window.addEventListener("resize", () => DATA && render(DATA));
 // Abas
 document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-current", x === b ? "page" : "false"));
-  ["fat", "orc", "cx", "vend"].forEach(t => $("#tab-" + t).hidden = t !== b.dataset.tab);
+  ["fat", "orc", "cx", "rep", "vend"].forEach(t => $("#tab-" + t).hidden = t !== b.dataset.tab);
   store("vendas_tab", b.dataset.tab);
   if (DATA) render(DATA); // redesenha gráficos da aba visível (largura)
 }));
 document.querySelector('nav button[data-tab="vend"]').lastChild.textContent = EMPCFG.Vends;
 if (EMPCFG.semOrc) document.querySelector('nav button[data-tab="orc"]').style.display = "none";   // filial sem orçamentos no Winthor
+$("#rp-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { RP_ABA = b.dataset.a; renderRep(); } });
+$("#rp-q").addEventListener("input", e => { RP_Q = e.target.value; renderRep(); });
 const lastTab = EMPCFG.semOrc && load("vendas_tab") === "orc" ? null : load("vendas_tab"); if (lastTab) document.querySelector(`nav button[data-tab="${lastTab}"]`)?.click();
 // Filtros
 $("#o-filtros").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; FILTRO = b.dataset.f; document.querySelectorAll("#o-filtros button").forEach(x => x.setAttribute("aria-pressed", x === b)); renderLista(); });
