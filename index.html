@@ -296,7 +296,7 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
     <div class="card" style="padding:6px 14px"><table class="m27t" id="m27-mes"></table></div>
     <h2>Meta por vendedora <small id="m27-vend-sub"></small></h2>
     <div class="card" id="m27-vend" style="padding:4px 16px"></div>
-    <p class="vsub" style="margin:10px 4px 0;line-height:1.5">Meta 2027: R$ 22,9 milhões (+14% sobre 2026), dividida pelos dias úteis de cada mês, com dezembro 20% menor. Por vendedora, pela participação de cada uma nas vendas de nov/25 a out/26. Clientes: 300 atendidos por mês na soma das cinco. Meta de lucro entra a partir de abril.</p>
+    <p class="vsub" style="margin:10px 4px 0;line-height:1.5">Meta 2027: R$ 22,9 milhões (+14% sobre 2026), dividida pelos dias úteis de cada mês, com dezembro 20% menor. Por vendedora, pela participação de cada uma nas vendas de nov/25 a out/26, com a Roberta em +7% e Ana, Cleo, Glauciene e Cintia em +17%. Clientes: 300 atendidos por mês na soma das cinco. Meta de lucro entra a partir de abril.</p>
   </section>
 </main>
 
@@ -1397,7 +1397,7 @@ const _carregar = carregar;
 // ===== Meta 2027 (FiberFix) =====
 const META27 = { ano: 2027, total: 22900000, cresc: 14, cliMes: 300,
   mes: [1780000, 1687000, 2061000, 1968000, 1874000, 2061000, 1968000, 2061000, 1968000, 1874000, 1874000, 1724000],
-  vend: [["yasmin", "Roberta (RCA 1 · Yasmin)", 0.3104, 82], ["ana", "Ana", 0.2795, 88], ["cleo", "Cleo", 0.1728, 57], ["glauciene", "Glauciene", 0.1013, 50], ["cintia", "Cintia", 0.0936, 24], ["", "Canais online e outros", 0.0424, 0]] };
+  vend: [["yasmin", "Roberta (RCA 1 · Yasmin)", 0.2913, 82], ["ana", "Ana", 0.2877, 88], ["cleo", "Cleo", 0.1779, 57], ["glauciene", "Glauciene", 0.1043, 50], ["cintia", "Cintia", 0.0964, 24], ["", "Canais online e outros", 0.0424, 0]] };
 function renderMeta27() {
   const btn = document.querySelector('nav button[data-tab="meta"]'), on = EMPCFG.app === "vendas";
   btn.style.display = on ? "" : "none"; if (!on || !DATA || !DATA.faturamento) return;
