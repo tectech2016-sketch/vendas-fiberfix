@@ -214,7 +214,9 @@ tr.tot td{font-weight:600;border-top:2px solid var(--axis)}
         <div id="card-hoje" role="button" style="cursor:pointer"><span>Hoje <span style="display:inline;color:var(--s1)">›</span></span><b id="k-hoje">—</b><small id="k-hoje-sub"></small></div>
         <div id="card-ontem" role="button" style="cursor:pointer"><span><span id="k-ontem-lab" style="display:inline">Ontem</span> <span style="display:inline;color:var(--s1)">›</span></span><b id="k-ontem">—</b><small id="k-ontem-sub"></small></div>
         <div><span>Lucro bruto hoje</span><b id="k-lb">—</b><small id="k-lb-sub"></small></div>
-        <div><span>Ticket médio</span><b id="k-tkt">—</b><small id="k-tkt-sub"></small></div></div></div>
+        <div><span>Ticket médio</span><b id="k-tkt">—</b><small id="k-tkt-sub"></small></div>
+<div><span>Clientes atendidos</span><b id="k-cli">—</b><small id="k-cli-sub"></small></div>
+<div><span>Compra por cliente</span><b id="k-cpc">—</b><small id="k-cpc-sub"></small></div></div></div>
       <div class="card" hidden><div class="label">Projeção do mês</div><div class="big" id="k-proj">—</div><div class="delta" id="d-proj"></div></div>
       <div class="card wide" id="card-margem" hidden>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="label" style="margin:0">Margem bruta</div>
@@ -545,6 +547,12 @@ function render(d) {
     $("#k-lb").textContent = nl.length ? brl(v - c) : "—";
     $("#k-lb-sub").textContent = !nl.length ? "nenhuma nota ainda" : v ? `margem ${((v - c) / v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%` : ""; }
   $("#k-tkt").textContent = brl(f.ticket_medio); $("#k-tkt-sub").textContent = f.pedidos_mes ? `${f.pedidos_mes} pedidos` : "";
+  { // clientes atendidos no mês: clientes diferentes com nota, comparados ao mesmo período do mês anterior
+    const rf = refData(), ymc = (y, m) => y + "-" + String(m + 1).padStart(2, "0"), mA = ymc(rf.getFullYear(), rf.getMonth()), dP = new Date(rf.getFullYear(), rf.getMonth() - 1, 1), mP = ymc(dP.getFullYear(), dP.getMonth()), dia = rf.getDate();
+    const nm = f.notas_mes || [], cli = l => new Set(l.map(n => n.cliente_cod).filter(Boolean)).size, doMes = nm.filter(n => String(n.data).startsWith(mA));
+    const cA = cli(doMes), cP = cli(nm.filter(n => String(n.data).startsWith(mP) && +String(n.data).slice(8, 10) <= dia)), vA = doMes.reduce((a, n) => a + (n.valor || 0), 0), dv = cP ? pct(cA, cP) : null;
+    $("#k-cli").textContent = cA || "—"; $("#k-cli-sub").innerHTML = cA ? (dv == null ? "no mês" : `<span style="color:${dv >= 0 ? "var(--good)" : "var(--bad)"}">${dv >= 0 ? "▲" : "▼"} ${fmtPct(Math.abs(dv)).replace("+", "")}</span> vs. ${cP} até dia ${dia} do mês anterior`) : "";
+    $("#k-cpc").textContent = cA ? brl(vA / cA) : "—"; $("#k-cpc-sub").textContent = cA ? `${(doMes.length / cA).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} notas por cliente` : ""; }
   const now = isNaN(dt) ? hoje() : dt;
   const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const diasUteisPassados = contaUteis(now.getFullYear(), now.getMonth(), now.getDate());
